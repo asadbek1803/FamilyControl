@@ -45,7 +45,6 @@ class DeviceRegisterSerializer(serializers.Serializer):
 
 
 class DevicePairSerializer(serializers.Serializer):
-    device_identifier = serializers.CharField(max_length=255)
     pairing_code = serializers.CharField(max_length=6)
 
     def validate_pairing_code(self, value):
@@ -54,13 +53,17 @@ class DevicePairSerializer(serializers.Serializer):
         return value
 
     def validate(self, attrs):
+        pairing_code = attrs["pairing_code"]
+        # Find device by pairing_code that is valid
+        from django.utils import timezone
+        
         try:
-            device = ChildDevice.objects.get(device_identifier=attrs["device_identifier"])
+            device = ChildDevice.objects.get(pairing_code=pairing_code)
         except ChildDevice.DoesNotExist:
-            raise serializers.ValidationError("Invalid device or pairing code.")
+            raise serializers.ValidationError("Ulanish kodi noto'g'ri yoki eskirgan.")
 
-        if not device.verify_pairing_code(attrs["pairing_code"]):
-            raise serializers.ValidationError("Invalid device or pairing code.")
+        if not device.verify_pairing_code(pairing_code):
+            raise serializers.ValidationError("Ulanish kodi noto'g'ri yoki eskirgan.")
 
         attrs["device"] = device
         return attrs
