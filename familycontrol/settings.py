@@ -10,6 +10,8 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
+
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -95,15 +97,121 @@ TEMPLATES = [
 WSGI_APPLICATION = "familycontrol.wsgi.application"
 
 
+def _parse_postgres_url(url):
+    """`DATABASE_URL` ni Django sozlamalariga bo'laklarga ajratadi.
+
+    Nima uchun `dj-database-url` emas: Neon manzilida `?sslmode=require&
+    channel_binding=require` kabi qo'shimcha parametrlar bor. Uchinchi tomon
+    kutubxonalari shularni har xil talqin qiladi (ba'zilari tashlab yuboradi).
+    Bu yerda barcha o'qilgan parametrlar `OPTIONS` ga to'g'ridan-to'g'ri
+    beriladi — `psycopg` ularni to'g'ri taniydi.
+
+    Talqin qilinmagan parametr bo'lsa, uni `options` orqali o'tkazamiz, shunda
+    `options=-c%20statement_timeout%3D5000` kabi narsalar ham ishlaydi.
+    """
+    from urllib.parse import parse_qsl, unquote, urlparse
+
+    parsed = urlparse(url)
+
+    if parsed.scheme not in ("postgres", "postgresql"):
+        raise ValueError(
+            f"DATABASE_URL sxemasi qo'llab-quvvatlanmaydi: {parsed.scheme!r}. "
+            "Kutilgan: postgresql://..."
+        )
+
+    options = {}
+    for key, value in parse_qsl(parsed.query, keep_blank_values=True):
+        # Django/psycopg uchun ma'lum kalitlar
+        options[key] = unquote(value)
+
+    # `options` parametri maxsus: -c kalit=qiymat juftligi qo'shish kerak
+    raw_options = options.pop("options", None)
+    if raw_options:
+        for item in raw_options.split():
+            if "=" in item:
+                name, _, val = item.partition("=")
+                existing = options.get(name, "")
+                options[name] = f"{existing} {val}" if existing else val
+
+    # `sslrootcert` kabi yo'llar Django uchun to'g'ri emas
+    options = {k: v for k, v in options.items() if v != ""}
+
+    if not parsed.username or not parsed.hostname:
+        raise ValueError("DATABASE_URL da foydalanuvchi yoki host topilmadi")
+
+    return {
+        "name": unquote((parsed.path or "/postgres").lstrip("/")) or "postgres",
+        "user": unquote(parsed.username),
+        "password": unquote(parsed.password or ""),
+        "host": parsed.hostname,
+        "port": parsed.port or 5432,
+        "options": options,
+    }
+
+
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+# PostgreSQL (Neon) ishlatiladi. Manzil `DATABASE_URL` muhit o'zgaruvchisidan
+# olinadi — kodga YOZILMAYDI, chunki parol GitHub'ga tushib qolmasligi kerak.
+#
+# Railway:  Variables -> DATABASE_URL
+# Mahalliy: `.env` fayliga yozing (namuna `.env.example` da)
+#
+# `DATABASE_URL` yo'q bo'lsa SQLite'ga qaytadi — bu qulaylik uchun: mahalliy
+# tez sinash uchun server kerak emas.
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+
+if DATABASE_URL:
+    _pg = _parse_postgres_url(DATABASE_URL)
+
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": _pg["name"],
+            "USER": _pg["user"],
+            "PASSWORD": _pg["password"],
+            "HOST": _pg["host"],
+            "PORT": _pg["port"],
+            "OPTIONS": _pg["options"],
+            # Neon bergan manzil `-pooler.` bilan tugaydi — bu PgBouncer
+            # (transaction rejimi). Unda Django ulashni bo'sh qoldirmasligi
+            # kerak: aks holda `SET` buyruqlari keyingi so'rovga ko'tarilib
+            # ketadi va "server tomonidan tasodifan uzildi" xatolari chiqadi.
+            # Xavfsizlik tezligidan ustun.
+            "CONN_MAX_AGE": int(os.environ.get("CONN_MAX_AGE", "0")),
+            # So'rov ichidagi bir nechta `save()` bitta tranzaksiyada bo'lishi
+            # uchun (pairing kodidan foydalanilmasligi kabi).
+            "ATOMIC_REQUESTS": True,
+            # Test bazasi oldindan yaratiladi va YO'Q QILINMAYDI.
+            #
+            # Nega: Neon manzili PgBouncer (transaction rejimi) orqali o'tadi va
+            # u o'z havuzida server ulanishlarini ushlab turadi. Django test
+            # yakunida `DROP DATABASE` bersa, "database is being accessed by
+            # other users" xatosi chiqadi (test `OK` bo'lganiga qaramay).
+            #
+            # `TEST["KEEP_DB"]` Django tomonidan o'qilMAYDI (u `global_settings.TEST`
+            # da yo'q) — shuning uchun `TEST_RUNNER` pastda `keepdb=True` ni
+            # avtomatik yoqadi. O'chirish: `TEST_KEEP_DB=0 python manage.py test`
+            #
+            # BIR MARTA: `python manage.py prepare_test_db`
+            "TEST": {
+                "NAME": os.environ.get("TEST_DATABASE_NAME", "neondb_test"),
+            },
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
+
+
+# Test runner: `--keepdb` ni avtomatik yoqadi (Neon/PgBouncer uchun zarur).
+# Tafsilot: `familycontrol/test_runner.py`
+TEST_RUNNER = "familycontrol.test_runner.FamilyControlTestRunner"
 
 
 # Password validation
@@ -141,7 +249,6 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = "static/"
-import os
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 STORAGES = {

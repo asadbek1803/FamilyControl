@@ -5,3 +5,5 @@ django-cors-headers>=4.3
 gunicorn
 whitenoise
 python-dotenv>=1.0
+# PostgreSQL uchun. psycopg 3 Django 5 uchun tavsiya etilgan drayver.
+psycopg[binary]>=3.1

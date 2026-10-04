@@ -24,7 +24,42 @@ python manage.py runserver
 
 API manzili: `http://127.0.0.1:8000/api/v1/`
 
-### 2. Flutter ilovasi
+`DATABASE_URL` berilmasa SQLite (`db.sqlite3`) ishlatiladi — mahalliy tez sinash
+uchun yetarli.
+
+### 2. PostgreSQL (Neon)
+
+Production uchun SQLite **ishlatilmaydi** (bir nechta device bir vaqtda
+yozayotganda buziladi). Neon'da bo'sh ma'lumotbazasi yarating va ulanish
+manzilini oling.
+
+`familycontrol/settings.py` `DATABASE_URL` muhit o'zgaruvchisini o'qiadi —
+kodga yozilmaydi, shuning uchun parol GitHub'ga tushmaydi.
+
+**Railway:** Variables → `DATABASE_URL` → Neon bergan manzilni yozing →
+**Redeploy**.
+
+**Mahalliy:** `.env` fayli yarating (`.env.example` ga qarang):
+
+```
+DATABASE_URL=postgresql://USER:PASSWORD@HOST/neondb?sslmode=require&channel_binding=require
+```
+
+Keyin:
+
+```bash
+python manage.py migrate
+```
+
+Manzil **Pooled connection** bo'lishi kerak (`-pooler.` bilan tugaydi) —
+Neon boshqacha manzil berishi mumkin.
+
+> ⚠️ `CONN_MAX_AGE` ataylab `0` qilingan: PgBouncer transaction rejimida
+> Django ulashni bo'sh qoldirmasligi kerak, aks holda `SET` buyruqlari
+> keyingi so'rovga ko'tarilib ketadi. Kengaytirilgan variant kerak bo'lsa
+> `CONN_MAX_AGE` muhit o'zgaruvchisi orqali o'zgartiriladi.
+
+### 3. Flutter ilovasi
 
 `flutter_app/lib/core/constants/api_constants.dart` faylidagi `baseUrl` ni
 o'zgartiring:
@@ -238,6 +273,28 @@ python manage.py test parental_control
 cd flutter_app && flutter analyze && flutter test
 ```
 
+**PostgreSQL bilan:** birinchi marta test bazasi yaratiladi (keyin
+o'chirilmaydi — `neondb_test`):
+
+```bash
+python manage.py prepare_test_db     # BIR MARTA
+python manage.py test parental_control
+```
+
+Nega `prepare_test_db` kerak: Neon manzili PgBouncer orqali o'tadi va u
+server ulanishlarini o'z havuzida ushlab turadi. Django test oxirida
+`DROP DATABASE` bersa, `database is being accessed by other users` xatosi
+chiqadi — testlar `OK` bo'lganiga qaramay. `familycontrol/test_runner.py`
+buni `--keepdb` orqali hal qiladi.
+
+To'liq qayta qurish:
+
+```bash
+python manage.py prepare_test_db --reset
+```
+
+SQLite bilan ishlayotgan bo'lsangiz, `prepare_test_db` kerak emas.
+
 ## Production oldidan
 
 `familycontrol/settings.py` dagi quyidagilar **albatta** o'zgartirilishi kerak:
@@ -246,3 +303,5 @@ cd flutter_app && flutter analyze && flutter test
 - `SECRET_KEY` — muhit o'zgaruvchisiga ko'chirilishi kerak
 - `ALLOWED_HOSTS = ["*"]` — aniq domenlar ro'yxati
 - `CORS_ALLOW_ALL_ORIGINS = True` — false qilinishi kerak
+- `DATABASE_URL` — Railway Variables'da (kodga yozilmaydi)
+- `TELEGRAM_BOT_TOKEN` — Railway Variables'da
