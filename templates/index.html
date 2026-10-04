@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FamilyControl - Ota-ona nazorati ilovasi</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .gradient-text {
+            background: linear-gradient(90deg, #2563eb, #9333ea);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900">
+
+    <!-- Navbar -->
+    <nav class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center gap-2">
+                    <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                    <span class="text-xl font-bold">FamilyControl</span>
+                </div>
+                <div>
+                    <a href="#features" class="text-gray-600 hover:text-blue-600 px-3 py-2 font-semibold">Imkoniyatlar</a>
+                    <a href="#" class="ml-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold transition">Ilovani yuklab olish</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <header class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
+        <h1 class="text-5xl md:text-6xl font-extrabold tracking-tight mb-6">
+            Farzandingiz xavfsizligi <br/> <span class="gradient-text">sizning qo'lingizda</span>
+        </h1>
+        <p class="text-xl text-gray-600 max-w-2xl mx-auto mb-10">
+            Bolangizning raqamli hayotini xavfsiz va nazorat ostida saqlang. Ekran vaqti, manzillar va xavfli holatlarni onlayn va oflayn tarzda osongina kuzating.
+        </p>
+        <div class="flex justify-center gap-4">
+            <a href="#" class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-bold text-lg shadow-lg shadow-blue-200 transition">Android uchun (APK)</a>
+            <a href="#features" class="bg-white hover:bg-gray-50 text-gray-800 border border-gray-200 px-8 py-3 rounded-xl font-bold text-lg transition">Batafsil ma'lumot</a>
+        </div>
+        <div class="mt-16">
+            <img src="https://images.unsplash.com/photo-1511895426328-dc8714191300?q=80&w=2070&auto=format&fit=crop" alt="Family using devices safely" class="rounded-2xl shadow-2xl w-full max-w-4xl mx-auto object-cover h-[400px]">
+        </div>
+    </header>
+
+    <!-- Features Section -->
+    <section id="features" class="bg-white py-20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl font-bold text-gray-900">Dasturning asosiy imkoniyatlari</h2>
+                <p class="mt-4 text-lg text-gray-500">Barcha jarayonlar shaffof va ochiq shaklda, zamonaviy texnologiyalar bilan himoyalangan.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <!-- Feature 1 -->
+                <div class="bg-gray-50 p-6 rounded-2xl border border-gray-100 hover:shadow-lg transition">
+                    <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center mb-4">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">Geozonalar va Xarita</h3>
+                    <p class="text-gray-600">Maktab yoki uy atrofida "Xavfsiz hudud" yarating. Bola shu hududdan chiqsa sizga darhol Push-xabarnoma keladi.</p>
+                </div>
+
+                <!-- Feature 2 -->
+                <div class="bg-gray-50 p-6 rounded-2xl border border-gray-100 hover:shadow-lg transition">
+                    <div class="w-12 h-12 bg-purple-100 text-purple-600 rounded-lg flex items-center justify-center mb-4">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">Ekran vaqti va Limitlar</h3>
+                    <p class="text-gray-600">O'yinlarga kunlik daqiqali limit belgilang. Tunda uxlash vaqtida (masalan, 22:00) telefonni avtomatik qulflang.</p>
+                </div>
+
+                <!-- Feature 3 -->
+                <div class="bg-gray-50 p-6 rounded-2xl border border-gray-100 hover:shadow-lg transition">
+                    <div class="w-12 h-12 bg-red-100 text-red-600 rounded-lg flex items-center justify-center mb-4">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">Favqulodda SOS</h3>
+                    <p class="text-gray-600">Farzand ilovasidagi katta qizil SOS tugmasi yordamida bir soniyada aniq manzil bilan xavf signalini qabul qilib oling.</p>
+                </div>
+
+                <!-- Feature 4 -->
+                <div class="bg-gray-50 p-6 rounded-2xl border border-gray-100 hover:shadow-lg transition">
+                    <div class="w-12 h-12 bg-teal-100 text-teal-600 rounded-lg flex items-center justify-center mb-4">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">Kontaktlar nazorati</h3>
+                    <p class="text-gray-600">Bolaning manzil daftarida qanday yangi raqamlar paydo bo'layotganini Ota-ona panelidan shaffof kuzatib boring.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-gray-400 py-12 text-center">
+        <div class="flex justify-center items-center gap-2 mb-4">
+            <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+            <span class="text-xl font-bold text-white">FamilyControl</span>
+        </div>
+        <p>&copy; 2026 FamilyControl. Barcha huquqlar himoyalangan.</p>
+        <p class="text-sm mt-2">Dastur yashirin kuzatuv uchun emas, ochiq ota-ona nazorati va bolalar xavfsizligi uchun mo'ljallangan.</p>
+    </footer>
+
+</body>
+</html>
