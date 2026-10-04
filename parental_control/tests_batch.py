@@ -1,11 +1,11 @@
 from django.contrib.auth.models import User
 from django.urls import reverse
 from rest_framework import status
-from rest_framework.test import APITestCase
 from .models import ChildDevice
+from .tests_base import BaseAPITestCase
 
 
-class BatchSyncTestCase(APITestCase):
+class BatchSyncTestCase(BaseAPITestCase):
     def setUp(self):
         self.parent = User.objects.create_user(username="parent2", password="pass1234")
         self.device = ChildDevice.objects.create(

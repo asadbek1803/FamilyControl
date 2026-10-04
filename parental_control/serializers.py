@@ -87,7 +87,12 @@ class DevicePairSerializer(serializers.Serializer):
 
     def save(self, **kwargs):
         device = self.validated_data["device"]
-        device.parent = self.context["request"].user
+        # `attach_parent` — `update_fields` tuzagi bo'yicha `parent`ni alohida
+        # yozadi. Agar bu qadamni tushirib qolsak, quyidagi ikkala `save()`
+        # chaqiruvi `parent`ni tegmaydi va u bazada NULL qoladi: pairing
+        # muvaffaqiyatli bo'ladi, Telegram xabari keladi, lekin ota-ona
+        # qurilmani hech qayerda ko'rmaydi. Qarang `ChildDevice.attach_parent`.
+        device.attach_parent(self.context["request"].user)
         device.clear_pairing_code()
         token = device.generate_device_token()
         self.token = token

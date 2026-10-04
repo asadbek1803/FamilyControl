@@ -3,12 +3,11 @@ from unittest.mock import patch
 from django.contrib.auth.models import User
 from django.urls import reverse
 from rest_framework import status
-from rest_framework.test import APITestCase
-
 from .models import ChildDevice, DeviceEvent, TelegramNotificationSetting
+from .tests_base import BaseAPITestCase
 
 
-class TelegramSettingTestCase(APITestCase):
+class TelegramSettingTestCase(BaseAPITestCase):
     def setUp(self):
         self.parent = User.objects.create_user(username="tparent", password="pass1234")
         self.url = reverse("telegram_setting")
@@ -75,7 +74,7 @@ class TelegramSettingTestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
 
-class DeviceClaimTestCase(APITestCase):
+class DeviceClaimTestCase(BaseAPITestCase):
     def setUp(self):
         self.parent = User.objects.create_user(username="cparent", password="pass1234")
         self.url = reverse("device_claim")
@@ -113,7 +112,7 @@ class DeviceClaimTestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
 
-class DeviceEventTestCase(APITestCase):
+class DeviceEventTestCase(BaseAPITestCase):
     def setUp(self):
         self.parent = User.objects.create_user(username="eparent", password="pass1234")
         self.device = ChildDevice.objects.create(
@@ -246,7 +245,7 @@ class DeviceEventTestCase(APITestCase):
         self.assertEqual(mock_send.call_count, 0)
 
 
-class RetryPendingTestCase(APITestCase):
+class RetryPendingTestCase(BaseAPITestCase):
     def setUp(self):
         from . import notifications
 

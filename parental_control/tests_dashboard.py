@@ -18,7 +18,7 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
-from rest_framework.test import APITestCase
+from .tests_base import BaseAPITestCase
 
 from .models import (
     AppTimeLimit,
@@ -47,7 +47,7 @@ def _backdate(instance, **fields):
     instance.refresh_from_db()
 
 
-class DashboardTestCase(APITestCase):
+class DashboardTestCase(BaseAPITestCase):
     def setUp(self):
         self.parent = User.objects.create_user(username="dash_parent", password="pass1234")
         self.stranger = User.objects.create_user(username="dash_stranger", password="pass1234")
@@ -367,7 +367,7 @@ class DashboardTestCase(APITestCase):
         )
 
 
-class ChildNameTestCase(APITestCase):
+class ChildNameTestCase(BaseAPITestCase):
     """`child_name` — qaysi qurilma qaysi farzandniki."""
 
     def setUp(self):
@@ -415,7 +415,7 @@ class ChildNameTestCase(APITestCase):
         self.assertEqual(self.device.device_identifier, "dev-name-1")
 
 
-class SOSListTestCase(APITestCase):
+class SOSListTestCase(BaseAPITestCase):
     """SOS signall tarixi — ota-ona ilovada ko'rishi va yopishi kerak."""
 
     def setUp(self):
@@ -471,7 +471,7 @@ class SOSListTestCase(APITestCase):
         self.assertEqual(SOSAlert.objects.count(), 1)
 
 
-class EventFilterTestCase(APITestCase):
+class EventFilterTestCase(BaseAPITestCase):
     """Hodisa tarixi filtrlari."""
 
     def setUp(self):
@@ -525,7 +525,7 @@ class EventFilterTestCase(APITestCase):
         self.assertEqual(messages, ["Batareya", "SOS 1", "Eski SOS"])
 
 
-class ZoneAndContactDetailTestCase(APITestCase):
+class ZoneAndContactDetailTestCase(BaseAPITestCase):
     """Zona va kontaktlarni tahrirlash/o'chirish (avval faqat `POST` bor edi)."""
 
     def setUp(self):

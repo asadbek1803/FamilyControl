@@ -75,6 +75,32 @@ class ChildDevice(models.Model):
             return False
         return timezone.now() <= self.pairing_code_expires_at
 
+    def attach_parent(self, parent):
+        """Ota-onani qurilmaga bog'lash.
+
+        Nima uchun alohida metod: bu modeldagi boshqa holat o'zgarish
+        metodlari (`clear_pairing_code`, `generate_device_token`,
+        `update_last_seen`) `save(update_fields=[...])` bilan saqlaydi. Ularning
+        ro'yxatida `parent` YO'Q — ya'ni ular chaqirilganda bu yerda o'rnatilgan
+        `parent` bazaga yozilmaydi, faqat xotirada qoladi.
+
+        Bu xato juda yashirin edi va butun ilovani ishdan chiqardi:
+
+        - `DevicePairView` pairingni muvaffaqiyatli deb hisoblar (200 + token),
+        - Telegram'ga "Qurilma ulandi" xabari keladi,
+        - lekin bazada `parent` NULL qoladi, shuning uchun
+          `GET /devices/` (`filter(parent=request.user)`) bo'sh qaytadi,
+        - boshqaruv panelida farzand ko'rinmaydi,
+        - `DeviceClaimView` ham `is_paired == False` deb qaraydi, ya'ni
+          farzand ilovasi token olmaydi va hech qanday ma'lumot yubormaydi.
+
+        Ya'ni foydalanuvchi "ulandi, lekin hech narsa chiqmayapti" holatini
+        ko'radi. Shu sababli `parent` o'zgarishi avval alohida yoziladi —
+        keyingi `update_fields` chaqiruvlari uni tegmaydi.
+        """
+        self.parent = parent
+        self.save(update_fields=["parent"])
+
     def generate_device_token(self):
         token = secrets.token_urlsafe(48)
         self.device_token_hash = hashlib.sha256(token.encode()).hexdigest()
@@ -93,7 +119,12 @@ class ChildDevice(models.Model):
         self.save(update_fields=["last_seen"])
 
     def __str__(self):
-        return f"{self.device_name or self.device_identifier} ({self.parent.username})"
+        # `parent` NULL bo'lishi mumkin: qurilma ro'yxatdan o'tgan, lekin
+        # ota-ona uni hali ulamagan. Aks holda `self.parent.username` None
+        # bo'yicha xato berib, butun admin sahifasini (barcha qurilmalar
+        # ro'yxati) ochib bo'lmaydigan qiladi.
+        owner = self.parent.username if self.parent else "ulangan emas"
+        return f"{self.device_name or self.device_identifier} ({owner})"
 
 
 class LocationLog(models.Model):

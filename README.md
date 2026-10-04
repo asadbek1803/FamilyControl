@@ -255,6 +255,51 @@ Qurilma autentifikatsiyasi bilan (`Authorization: DeviceBearer <id>:<token>`):
 - `GET /devices/events/` — hodisa tarixi
 - `POST /sync/batch/` — batareya, joylashuv, ilovalar
 
+### DIQQAT: `parent` alohida saqlanadi
+
+`ChildDevice` dagi `clear_pairing_code()`, `generate_device_token()` va
+`update_last_seen()` **faqat o'z maydonlarini** saqlaydi
+(`save(update_fields=[...])`). Shuning uchun `parent` ni o'zgartirish
+**alohida** qilinishi kerak — `ChildDevice.attach_parent()` orqali:
+
+```python
+device.attach_parent(request.user)   # TO'G'RI
+device.parent = request.user         # XATO — bazaga yozilmaydi!
+```
+
+Sabab: keyingi `save(update_fields=[...])` chaqiruvlari `parent` ga tegmaydi,
+shuning uchun u faqat xotirada qoladi va **yo'qoladi**. Bu xato 2026-10 da
+butun ilovani ishdan chiqargandi:
+
+- `POST /devices/pair/` muvaffaqiyatli qaytardi (200 + token),
+- Telegram'da "Qurilma ulandi" xabari keldi,
+- lekin `parent` NULL bo'lib qoldi, shuning uchun `GET /devices/`
+  (`filter(parent=request.user)`) **bo'sh** qaytardi va boshqaruv panelida
+  farzand ko'rinmadi,
+- `POST /devices/claim/` ham `is_paired == False` deb qaradi, ya'ni farzand
+  ilovasi token ham ololmadi va hech qanday ma'lumot yubormadi.
+
+**Belgisi:** Telegram'da "ulandi" xabari bor, lekin ilovada ro'yxat bo'sh.
+
+### Yetim ("orphan") qurilmalar
+
+`parent IS NULL` bo'lgan qurilma — ro'yxatdan o'tgan, lekin ota-onaga
+ulanmagan. Bunday qurilma hech qanday ma'lumot yubora olmaydi
+(`IsAuthenticatedDevice` `request.user is not None` talab qiladi), lekin
+joylashuv va ilovalar loglari bazada qoladi.
+
+Ko'rish va tozalash:
+
+```bash
+python manage.py cleanup_orphan_devices              # faqat ro'yxat (xavfsiz)
+python manage.py cleanup_orphan_devices --apply      # o'chiradi
+```
+
+**OGOHLANTIRISH:** ota-onaning o'z ishlaydigan qurilmasi ham shu ro'yxatda
+bo'lishi mumkin. O'chirmasdan oldin ilovada qayta ulab ko'ring — pairing
+`parent` yo'q bo'lgan qurilmani qabul qiladi (`is_paired` `parent_id` ga
+qaraydi). `--apply` berilmasa hech narsa o'chirilmaydi.
+
 ## Ota-onaning boshqaruv paneli
 
 Asosiy ekranda **boshqaruv paneli** bor: `GET /api/v1/dashboard/`. Bitta
@@ -355,7 +400,7 @@ Ota-ona kontaktni o'chira oladi, lekin bu **bolaning telefonidan o'chirish**
 ## Testlar
 
 ```bash
-python manage.py test parental_control        # 75 ta test
+python manage.py test parental_control        # 84 ta test
 cd flutter_app && flutter analyze && flutter test   # 26 ta test
 ```
 
@@ -367,6 +412,40 @@ Nima uchun bu muhim: modellarda maydon nomlari server bilan mos kelmasdi
 (`json['device_id'] as String` — `null` kelganda `TypeError`), xato esa
 `DeviceRepository` ichidagi `try` blokida yutilib, foydalanuvchiga faqat
 "bo'sh ro'yxat" ko'rinardi. Testlar shu sinf xatolarni darhol ushlaydi.
+
+### Pairing testlari
+
+`PairingFlowTestCase` — pairing oqimining asosiy tekshiruvi. Avval u faqat
+`is_active` va `pairing_code` ni tekshirardi, shuning uchun **`parent`
+bazaga yozilmasligi** 76 ta test o'tsa ham o'tkazib yuborildi (2026-10 da
+butun ilova shuning uchun ishlamadi).
+
+Hozir tekshiriladi:
+
+| Test | Nima tekshiradi |
+|---|---|
+| `test_device_pair_returns_device_token` | `parent` ham bazaga yoziladi |
+| `test_pairing_makes_device_visible_in_list` | `GET /devices/` bo'sh qolmaydi |
+| `test_pairing_lets_child_claim_token` | farzand `claim` qilishi mumkin |
+| `test_pairing_shows_child_on_dashboard` | panelda farzand ko'rinadi |
+| `test_broken_pairing_can_be_repeated` | yetim qurilmani qayta ulash mumkin |
+| `test_device_str_survives_missing_parent` | admin `__str__` da crash qilmaydi |
+
+**Throttling testlarni buzmasin:** `pair: 5/minute` chegarasi DRF hisobini
+`cache` da saqlaydi va testlar bitta vaqt oynasida bo'ladi — ya'ni 6-`pair`
+so'rovi `429` qaytarib, butun suite'ni tasodifi buzardi. `tests_base.py`
+dagi `BaseAPITestCase` buni `_pre_setup` da tozalaydi (`setUp` emas — uni
+subclass qayta yozib, `super()` ni tushirib qoldirishi mumkin). Natijada
+testlar tartibdan qat'i nazar: `--shuffle` bilan ham o'tadi.
+
+### Buyruqlar
+
+```bash
+python manage.py cleanup_orphan_devices            # yetim qurilmalarni ko'rish
+python manage.py cleanup_orphan_devices --apply    # o'chirish (xavfli!)
+python manage.py check_telegram                    # Telegram sozlamasi
+python manage.py send_pending_notifications        # yuborilmagan xabarlar
+```
 
 **PostgreSQL bilan:** birinchi marta test bazasi yaratiladi (keyin
 o'chirilmaydi — `neondb_test`):
