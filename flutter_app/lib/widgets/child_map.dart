@@ -20,7 +20,17 @@ class MapTileLayer extends StatefulWidget {
   /// `true` — "light" uslubi (marker yorqinroq ko'rinadi).
   final bool light;
 
-  const MapTileLayer({super.key, this.light = false});
+  /// Plitkalar yuklanmaganida chaqiriladi.
+  ///
+  /// Nima uchun bu muhim: Carto noto'g'ri yoki muddati tugagan kalitda ham
+  /// xato qaytarmaydi — **bo'sh PNG** qaytaradi (biz tekshirdik: 2049 bayt,
+  /// `HTTP 200`). Ya'ni xarita jimgina bo'sh ko'rinadi va foydalanuvchi
+  /// "internet yo'q" deb o'ylaydi, holbuki aslida kalit muammosi.
+  ///
+  /// Shuning uchun bu qaytiriladi va foydalanuvchiga ochiq aytiladi.
+  final VoidCallback? onTileError;
+
+  const MapTileLayer({super.key, this.light = false, this.onTileError});
 
   @override
   State<MapTileLayer> createState() => _MapTileLayerState();
@@ -28,20 +38,20 @@ class MapTileLayer extends StatefulWidget {
 
 class _MapTileLayerState extends State<MapTileLayer> {
   /// Internet yo'q holatda `errorTileCallback` **har bir** plitka uchun
-  /// chaqiriladi — ekranda 20-30 ta, ya'ni bir xato 30 marta chiqadi.
-  /// Shuning uchun faqat birinchisini yozamiz.
-  bool _reportedError = false;
+  /// chaqiriladi — ekranda 20-30 ta, ya'ni bitta ogohlantirish 30 marta
+  /// chiqadi. Shuning uchun faqat birinchisini xabar qilamiz.
+  bool _reported = false;
 
   @override
   Widget build(BuildContext context) {
     return TileLayer(
-      urlTemplate:
-          widget.light ? lightTileTemplate : voyagerTileTemplate,
+      urlTemplate: widget.light ? lightTileTemplate : voyagerTileTemplate,
       userAgentPackageName: 'com.familycontrol.family_control_app',
       errorTileCallback: (tile, error, stackTrace) {
-        if (_reportedError) return;
-        _reportedError = true;
+        if (_reported) return;
+        _reported = true;
         debugPrint('Xarita plitkalari yuklanmadi: $error');
+        widget.onTileError?.call();
       },
     );
   }
@@ -72,6 +82,7 @@ class ChildMapView extends StatefulWidget {
 class _ChildMapViewState extends State<ChildMapView> {
   final MapController _controller = MapController();
   bool _didFit = false;
+  bool _tilesFailed = false;
 
   @override
   void didUpdateWidget(ChildMapView oldWidget) {
@@ -114,7 +125,12 @@ class _ChildMapViewState extends State<ChildMapView> {
               ),
             ),
             children: [
-              const MapTileLayer(),
+              MapTileLayer(
+                onTileError: () {
+                  if (_tilesFailed) return;
+                  setState(() => _tilesFailed = true);
+                },
+              ),
 
               // Zonalar — bolaning "bo'lishi kerak" joylari. Ular zona
               // markaziga nisbatan `radius_meters` radiusda chiziladi.
@@ -158,8 +174,7 @@ class _ChildMapViewState extends State<ChildMapView> {
             bottom: 4,
             child: IgnorePointer(
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.75),
                   borderRadius: BorderRadius.circular(4),
@@ -172,7 +187,14 @@ class _ChildMapViewState extends State<ChildMapView> {
             ),
           ),
 
-          if (!hasLocation)
+          if (_tilesFailed)
+            const Positioned(
+              left: 12,
+              right: 12,
+              top: 12,
+              child: _MapNotice(icon: Icons.cloud_off, text: cartoOfflineHint),
+            )
+          else if (!hasLocation)
             const Positioned(
               left: 12,
               right: 12,
@@ -269,6 +291,7 @@ class ZoneCenterPicker extends StatefulWidget {
 
 class _ZoneCenterPickerState extends State<ZoneCenterPicker> {
   LatLng? _picked;
+  bool _tilesFailed = false;
 
   @override
   void initState() {
@@ -283,46 +306,71 @@ class _ZoneCenterPickerState extends State<ZoneCenterPicker> {
       children: [
         SizedBox(
           height: 260,
-          child: FlutterMap(
-            options: MapOptions(
-              initialCenter: _picked ?? const LatLng(41.2995, 69.2401),
-              initialZoom: _picked != null ? widget.initialZoom : 11,
-              minZoom: 3,
-              maxZoom: 19,
-              interactionOptions: const InteractionOptions(
-                flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
-              ),
-              onTap: (_, point) {
-                setState(() => _picked = point);
-                widget.onPick(point);
-              },
-            ),
+          child: Stack(
             children: [
-              // "Light" uslub: marker yorqin rangda, kartografiya bilan
-              // to'qnashmaydi.
-              const MapTileLayer(light: true),
+              FlutterMap(
+                options: MapOptions(
+                  initialCenter: _picked ?? const LatLng(41.2995, 69.2401),
+                  initialZoom: _picked != null ? widget.initialZoom : 11,
+                  minZoom: 3,
+                  maxZoom: 19,
+                  interactionOptions: const InteractionOptions(
+                    flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+                  ),
+                  onTap: (_, point) {
+                    setState(() => _picked = point);
+                    widget.onPick(point);
+                  },
+                ),
+                children: [
+                  // "Light" uslub: marker yorqin rangda, kartografiya bilan
+                  // to'qnashmaydi.
+                  MapTileLayer(
+                    light: true,
+                    onTileError: () {
+                      if (_tilesFailed) return;
+                      setState(() => _tilesFailed = true);
+                    },
+                  ),
 
-              if (_picked != null)
-                MarkerLayer(
-                  markers: [
-                    Marker(
-                      point: _picked!,
-                      width: 44,
-                      height: 44,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.indigo.withValues(alpha: 0.25),
-                        ),
-                        child: const Center(
-                          child: CircleAvatar(
-                            radius: 11,
-                            backgroundColor: Colors.indigo,
+                  if (_picked != null)
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: _picked!,
+                          width: 44,
+                          height: 44,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.indigo.withValues(alpha: 0.25),
+                            ),
+                            child: const Center(
+                              child: CircleAvatar(
+                                radius: 11,
+                                backgroundColor: Colors.indigo,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
+                ],
+              ),
+
+              // Xarita bo'sh qolsa, ota-ona "barmoqim tegmadi" deb
+              // o'ylab, tasodifiy nuqtani markaz qilib oladi. Ya'ni internet
+              // yo'q holatda aynan eng xavfli xato — noto'g'ri markaz —
+              // yuzaga keladi. Shuning uchun ogohlantirish majburiy.
+              if (_tilesFailed)
+                const Positioned(
+                  left: 12,
+                  right: 12,
+                  top: 12,
+                  child: _MapNotice(
+                    icon: Icons.cloud_off,
+                    text: cartoOfflineHint,
+                  ),
                 ),
             ],
           ),
@@ -339,13 +387,21 @@ class _ZoneCenterPickerState extends State<ZoneCenterPicker> {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  _picked == null
+                  // Xarita ishlamay turib tanlangan nuqtaga ishonish mumkin
+                  // emas — barmoq qayeraga tushganini ko'rib bo'lmaydi.
+                  // Qo'lda kiritishga yo'naltiramiz.
+                  _tilesFailed
+                      ? 'Xarita yuklanmadi — quyidagi "Ko\'lda kiritish" '
+                            'maydonidan koordinata yozing'
+                      : _picked == null
                       ? 'Xaritada bosing — zona markazi shu nuqtaga qo\'yiladi'
                       : '${_picked!.latitude.toStringAsFixed(5)}, '
-                          '${_picked!.longitude.toStringAsFixed(5)}',
+                            '${_picked!.longitude.toStringAsFixed(5)}',
                   style: TextStyle(
                     fontSize: 11,
-                    color: _picked == null ? Colors.grey : Colors.green[800],
+                    color: _picked == null || _tilesFailed
+                        ? Colors.grey
+                        : Colors.green[800],
                   ),
                 ),
               ),
