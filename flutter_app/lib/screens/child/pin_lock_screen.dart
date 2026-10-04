@@ -18,7 +18,13 @@ class _PinLockScreenState extends State<PinLockScreen> {
     final savedPin = prefs.getString('child_pin');
 
     if (_pinController.text == savedPin) {
-      // 5 daqiqaga ruxsat berish
+      // 5 daqiqaga ruxsat berish.
+      //
+      // DIQQAT: Dart'da `setLong` metodi YO'Q — shared_preferences faqat
+      // setInt/setDouble/setBool/setString/setStringList beradi. Android
+      // plagini esa `setInt` qiymatini ichkarida `putLong` bilan saqlaydi,
+      // shuning uchun Kotlin tomondagi `getLong` to'g'ri ishlaydi.
+      // Ikkala tomon bir xil tipda bo'lishi SHART (ClassCastException).
       final until = DateTime.now().millisecondsSinceEpoch + (5 * 60 * 1000);
       await prefs.setInt('unlocked_until', until);
       

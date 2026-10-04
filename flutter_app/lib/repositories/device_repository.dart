@@ -87,13 +87,11 @@ class DeviceRepository {
   }
 
   Future<Map<String, dynamic>> pairDevice({
-    required String deviceIdentifier,
     required String pairingCode,
   }) async {
     final response = await _apiClient.post(
       ApiConstants.devicePair,
       body: {
-        'device_identifier': deviceIdentifier,
         'pairing_code': pairingCode,
       },
     );
@@ -333,12 +331,18 @@ class DeviceRepository {
   }
 
   // ---- SOS Alerts ----
-  Future<bool> sendSOS(String deviceId) async {
+  // `SOSAlertSerializer` `latitude` va `longitude` maydonlarini majburiy qiladi.
+  // Avval yuborilgan `{device_id, status, created_at}` tani serializer'da yo'q
+  // edi -> har doim 400 ValidationError qaytardi.
+  Future<bool> sendSOS(
+    String deviceId, {
+    required double latitude,
+    required double longitude,
+  }) async {
     final isOnline = await _connectivity.isOnline;
     final data = {
-      'device_id': deviceId,
-      'status': 'active',
-      'created_at': DateTime.now().toIso8601String(),
+      'latitude': latitude,
+      'longitude': longitude,
     };
 
     if (isOnline) {
@@ -350,6 +354,7 @@ class DeviceRepository {
         return true;
       }
     } else {
+      // Internet yo'q — keyinroq yuborish uchun navbatga solamiz
       await _db.addToSyncQueue(
         endpoint: ApiConstants.deviceSOS(deviceId),
         method: 'POST',

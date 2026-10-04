@@ -45,6 +45,26 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!--
+            Device Admin. DIQQAT: bu ilovani o'chirishni TO'XTATMAYDI, faqat
+            force-lock va wipe-data siyosatlarini beradi. Asosiy himoya —
+            ChildAccessibilityService orqali Sozlamalarni PIN bilan bloklash.
+            Tushuntirish matni EXTRA_ADD_EXPLANATION orqali beriladi
+            (MainActivity.kt da), chunki xml/device_admin_receiver.xml da
+            description yo'q.
+        -->
+        <receiver android:name=".AdminReceiver"
+            android:label="FamilyControl"
+            android:permission="android.permission.BIND_DEVICE_ADMIN"
+            android:exported="true">
+            <meta-data android:name="android.app.device_admin"
+                android:resource="@xml/device_admin_receiver" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+        </receiver>
+
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/connectivity_provider.dart';
+import '../../providers/notification_settings_provider.dart';
 import '../devices/device_list_screen.dart';
 import '../devices/pair_device_screen.dart';
+import '../settings/telegram_settings_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -37,6 +39,22 @@ class HomeScreen extends StatelessWidget {
                   ? Colors.green.withOpacity(0.1)
                   : Colors.red.withOpacity(0.1),
             ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.notifications_none),
+            tooltip: 'Bildirishnoma sozlamalari',
+            onPressed: () async {
+              // Ekran ochilishidan oldin sozlamalarni serverdan olamiz
+              await context
+                  .read<NotificationSettingsProvider>()
+                  .load();
+              if (!context.mounted) return;
+              await Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const TelegramSettingsScreen(),
+                ),
+              );
+            },
           ),
           IconButton(
             icon: const Icon(Icons.logout),

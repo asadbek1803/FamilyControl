@@ -1,9 +1,8 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/api_constants.dart';
-import 'telegram_service.dart';
+import 'device_credentials.dart';
 
 class ApiClient {
   static final ApiClient _instance = ApiClient._internal();
@@ -56,29 +55,26 @@ class ApiClient {
     return false;
   }
 
-  Future<http.Response> _handleApiFallback(String method, String endpoint, Map<String, dynamic>? body, Map<String, String>? extraHeaders, bool retry, http.Response? originalResponse) async {
-    // 1. API ishlamayapti -> Telegramga bildirishnoma yuborish
-    await TelegramFallbackService.notifyApiDown();
-
-    // 2. Telegramdan yangi URL kelganmi tekshirish
-    final newUrl = await TelegramFallbackService.checkNewApiUrl();
-    if (newUrl != null && newUrl != ApiConstants.baseUrl) {
-      ApiConstants.baseUrl = newUrl;
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('dynamic_base_url', newUrl);
-      
-      // Ilova URLni qabul qilganligi haqida botga tasdiq jo'natamiz
-      await TelegramFallbackService.sendConfirmation(newUrl);
-      
-      // 3. Agar yangi URL topilsa va ruxsat bo'lsa (infinite loop oldini olish uchun) requestni yangi URL da qayta ishga tushirish
-      if (retry) {
-        return _request(method: method, endpoint: endpoint, body: body, extraHeaders: extraHeaders, retry: false);
-      }
-    }
-    
-    // Agar bot orqali hali url yangilanmagan bo'lsa, xatolikni qaytarish
+  /// Tarmoq yoki server xatosi.
+  ///
+  /// DIQQAT: eski versiya bu yerda Telegram orqali yangi server URL qabul qilardi.
+  /// Bu xavfli mexanizm edi — bot tokeni APK ichida hardcoded bo'lgani uchun
+  /// APK ni ochgan hujumchi botga o'z server manzilini yuborib, BARCHA ota-ona
+  /// va farzand qurilmalarining JWT tokenlarini o'z serveriga yo'naltirishi
+  /// mumkin edi. Endi server manzili faqat `ApiConstants.baseUrl` dan olinadi
+  /// va hech qanday tashqi manzildan o'zgartirilmaydi.
+  Future<http.Response> _handleApiFallback(
+    String method,
+    String endpoint,
+    Map<String, dynamic>? body,
+    Map<String, String>? extraHeaders,
+    bool retry,
+    http.Response? originalResponse,
+  ) async {
     if (originalResponse != null) return originalResponse;
-    throw Exception('API ulanish xatosi (Yangi server kutilmoqda)');
+    throw Exception(
+      "Serverga ulanib bo'lmadi. Internetni tekshirib, qayta urinib ko'ring.",
+    );
   }
 
   Future<http.Response> _request({
@@ -119,12 +115,10 @@ class ApiClient {
           throw Exception('Unknown HTTP method: $method');
       }
 
-      // Server ulanib lekin 500, 502, 503 xatolar qaytarsa ham Telegram ishga tushadi
       if (response.statusCode >= 500) {
         return _handleApiFallback(method, endpoint, body, extraHeaders, retry, response);
       }
     } catch (e) {
-      // Umuman ulanib bo'lmadi (Timeout yoki Network error)
       return _handleApiFallback(method, endpoint, body, extraHeaders, retry, null);
     }
 
@@ -151,12 +145,16 @@ class ApiClient {
   Future<http.Response> post(String endpoint, {Map<String, dynamic>? body}) =>
       _request(method: 'POST', endpoint: endpoint, body: body);
 
+  Future<http.Response> put(String endpoint, {Map<String, dynamic>? body}) =>
+      _request(method: 'PUT', endpoint: endpoint, body: body);
+
   Future<http.Response> patch(String endpoint, {Map<String, dynamic>? body}) =>
       _request(method: 'PATCH', endpoint: endpoint, body: body);
 
   Future<http.Response> delete(String endpoint) =>
       _request(method: 'DELETE', endpoint: endpoint);
 
+  /// Autentifikatsiyasiz so'rov (ro'yxatdan o'tkazish, pairing kodi olish).
   Future<http.Response> publicPost(
     String endpoint, {
     required Map<String, dynamic> body,
@@ -170,12 +168,40 @@ class ApiClient {
       ).timeout(const Duration(seconds: 10));
 
       if (res.statusCode >= 500) {
-         return _handleApiFallback('POST', endpoint, body, null, true, res);
+        return _handleApiFallback('POST', endpoint, body, null, true, res);
       }
       return res;
     } catch (e) {
       return _handleApiFallback('POST', endpoint, body, null, true, null);
     }
+  }
+
+  /// Qurilma tokeni bilan so'rov (`DeviceBearer <device_id>:<token>`).
+  ///
+  /// Pairing ota-onaning ilovasida bo'lgani uchun token ota-onada qoladi;
+  /// farzand qurilmasi uni `POST /devices/claim/` orqali oladi.
+  Future<http.Response> devicePost(
+    String endpoint, {
+    Map<String, dynamic>? body,
+  }) async {
+    final credentials = await DeviceCredentials.load();
+    if (credentials == null || !credentials.isValid) {
+      throw Exception('Qurilma hali ota-onaga ulanmagan.');
+    }
+
+    final uri = Uri.parse('${ApiConstants.baseUrl}$endpoint');
+    final res = await http
+        .post(
+          uri,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'DeviceBearer ${credentials.deviceId}:${credentials.token}',
+          },
+          body: body != null ? jsonEncode(body) : null,
+        )
+        .timeout(const Duration(seconds: 10));
+
+    return res;
   }
 
   dynamic decodeResponse(http.Response response) {

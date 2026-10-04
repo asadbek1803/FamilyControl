@@ -1,9 +1,17 @@
 class ApiConstants {
-  // Change this to your server IP when testing on real device
-  // For Android emulator: 10.0.2.2
-  // For iOS simulator: localhost
-  // For real device: your PC's local IP (e.g., 192.168.1.100)
-  static String baseUrl = 'http://10.0.2.2:8000/api/v1';
+  /// Server manzili. Ilova ishga tushganda `RemoteConfig` shu qiymatni GitHub'dagi
+  /// `familycontrol_config.json` fayli bilan yangilaydi (boshqa holatda bu
+  /// qiymat ishlatiladi).
+  ///
+  /// Eski versiya bu qiymatni Telegram orqali almashtirardi — bu xavfli
+  /// mexanizm edi, batafsil `lib/core/network/remote_config.dart` da.
+  static String baseUrl = defaultBaseUrl;
+
+  /// Change this to your server IP when testing on real device
+  /// For Android emulator: 10.0.2.2
+  /// For iOS simulator: localhost
+  /// For real device: your PC's local IP (e.g., 192.168.1.100)
+  static const String defaultBaseUrl = 'http://10.0.2.2:8000/api/v1';
 
   // Auth endpoints
   static const String login = '/auth/token/';
@@ -14,6 +22,13 @@ class ApiConstants {
   static const String devices = '/devices/';
   static const String deviceRegister = '/devices/register/';
   static const String devicePair = '/devices/pair/';
+  // Qurilma o'z tokenini oladi (pairing ota-onaning ilovasida bo'lgani uchun)
+  static const String deviceClaim = '/devices/claim/';
+  // Qurilma hodisa yuboradi (DeviceBearer autentifikatsiyasi)
+  static const String deviceEvents = '/devices/events/';
+
+  // Ota-onaning sozlamalari
+  static const String telegramSetting = '/settings/telegram/';
 
   // Child data endpoints (relative, device_id will be interpolated)
   static String deviceApps(String deviceId) => '/devices/$deviceId/apps/';
@@ -30,8 +45,10 @@ class ApiConstants {
       '/devices/$deviceId/zones/';
   static String deviceContacts(String deviceId) =>
       '/devices/$deviceId/contacts/';
-  static String deviceTimeLimits(String deviceId) =>
-      '/devices/$deviceId/time-limits/';
+  // DIQQAT: backend'da bu yo'l `parental_control/urls.py` da
+  // `devices/<uuid:device_id>/limits/` ko'rinishida. Avval bu yerda
+  // `/time-limits/` edi — mos kelmasligi tufayli barcha so'rovlar 404 berardi.
+  static String deviceTimeLimits(String deviceId) => '/devices/$deviceId/limits/';
   static String deviceSOS(String deviceId) =>
       '/devices/$deviceId/sos/';
 

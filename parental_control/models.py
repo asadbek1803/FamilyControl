@@ -6,6 +6,9 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 
+# Pairing code qancha vaqt amal qiladi. Sozlamalar orqali o'zgartirilishi mumkin.
+PAIRING_CODE_TTL = timedelta(minutes=30)
+
 
 class ChildDevice(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -29,7 +32,7 @@ class ChildDevice(models.Model):
     def generate_pairing_code(self):
         code = secrets.randbelow(1000000)
         self.pairing_code = f"{code:06d}"
-        self.pairing_code_expires_at = timezone.now() + timedelta(minutes=15)
+        self.pairing_code_expires_at = timezone.now() + PAIRING_CODE_TTL
         self.save(update_fields=["pairing_code", "pairing_code_expires_at"])
         return self.pairing_code
 
@@ -46,6 +49,17 @@ class ChildDevice(models.Model):
         self.pairing_code = None
         self.pairing_code_expires_at = None
         self.save(update_fields=["pairing_code", "pairing_code_expires_at"])
+
+    @property
+    def is_paired(self):
+        """Ota-ona shu qurilma bilan bog'langanmi."""
+        return self.parent_id is not None and self.is_active
+
+    @property
+    def pairing_code_is_valid(self):
+        if not self.pairing_code or not self.pairing_code_expires_at:
+            return False
+        return timezone.now() <= self.pairing_code_expires_at
 
     def generate_device_token(self):
         token = secrets.token_urlsafe(48)
@@ -201,3 +215,83 @@ class SOSAlert(models.Model):
 
     def __str__(self):
         return f"SOS - {self.device} at {self.created_at}"
+
+
+class TelegramNotificationSetting(models.Model):
+    """Ota-onaning Telegram orqali bildirishnoma olishi sozlamalari.
+
+    Bot tokeni bu yerda emas — u faqat server sozlamalarida (`TELEGRAM_BOT_TOKEN`)
+    saqlanadi. Shu yerda faqat ota-onaning o'z chat ID si bor.
+    """
+
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name="telegram_setting"
+    )
+    # Telegram chat ID si 32-bit chegaradan oshishi mumkin (-100... guruhlar),
+    # shuning uchun BigInteger.
+    chat_id = models.BigIntegerField(null=True, blank=True)
+    chat_title = models.CharField(max_length=255, blank=True)
+    is_enabled = models.BooleanField(default=False)
+    last_sent_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Telegram bildirishnoma sozlamasi"
+        verbose_name_plural = "Telegram bildirishnoma sozlamalari"
+
+    def __str__(self):
+        return f"Telegram: {self.user.username} ({self.chat_id})"
+
+
+class DeviceEvent(models.Model):
+    """Qurilma tomonidan xabar beriladigan hodisalar.
+
+    DIQQAT: bu OLOVLAR ILOVA va qurilma holati hodisalari (ulandi, bloklandi,
+    SOS, batareya, zonadan chiqdi). Boshqa ilovalarning ichki xabarlari yoki
+    chat yozishmalari bu modelga KIRMAYDI.
+    """
+
+    EVENT_PAIRED = "paired"
+    EVENT_UNPAIRED = "unpaired"
+    EVENT_SOS = "sos"
+    EVENT_BATTERY_LOW = "battery_low"
+    EVENT_ADMIN_DISABLED = "admin_disabled"
+    EVENT_ADMIN_ENABLED = "admin_enabled"
+    EVENT_CHILD_MODE_ENABLED = "child_mode_enabled"
+    EVENT_ZONE_EXIT = "zone_exit"
+    EVENT_APP_BLOCKED = "app_blocked"
+    EVENT_APP_UNBLOCKED = "app_unblocked"
+
+    EVENT_TYPE_CHOICES = [
+        (EVENT_PAIRED, "Qurilma ulandi"),
+        (EVENT_UNPAIRED, "Qurilma uzildi"),
+        (EVENT_SOS, "SOS signali"),
+        (EVENT_BATTERY_LOW, "Batareya qullab qolmoqda"),
+        (EVENT_ADMIN_DISABLED, "Himoya o'chirildi"),
+        (EVENT_ADMIN_ENABLED, "Himoya yoqildi"),
+        (EVENT_CHILD_MODE_ENABLED, "Farzand rejimi yoqildi"),
+        (EVENT_ZONE_EXIT, "Xavfsizlik zonasidan chiqdi"),
+        (EVENT_APP_BLOCKED, "Ilova bloklandi"),
+        (EVENT_APP_UNBLOCKED, "Ilova blokdan chiqarildi"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    device = models.ForeignKey(
+        ChildDevice, on_delete=models.CASCADE, related_name="events"
+    )
+    event_type = models.CharField(max_length=40, choices=EVENT_TYPE_CHOICES)
+    message = models.TextField()
+    data = models.JSONField(default=dict, blank=True)
+    is_delivered = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["device", "created_at"]),
+            models.Index(fields=["is_delivered", "created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.get_event_type_display()} - {self.device} ({self.created_at})"

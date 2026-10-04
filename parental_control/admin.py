@@ -6,6 +6,8 @@ from .models import (
     AppUsageLog,
     NotificationLog,
     AccessibilityTextLog,
+    DeviceEvent,
+    TelegramNotificationSetting,
 )
 
 
@@ -45,3 +47,17 @@ class NotificationLogAdmin(admin.ModelAdmin):
 class AccessibilityTextLogAdmin(admin.ModelAdmin):
     list_display = ("device", "package_name", "context_type", "recorded_at")
     list_filter = ("recorded_at",)
+
+
+@admin.register(TelegramNotificationSetting)
+class TelegramNotificationSettingAdmin(admin.ModelAdmin):
+    list_display = ("user", "chat_id", "chat_title", "is_enabled", "last_sent_at")
+    list_filter = ("is_enabled",)
+    search_fields = ("user__username", "chat_title")
+
+
+@admin.register(DeviceEvent)
+class DeviceEventAdmin(admin.ModelAdmin):
+    list_display = ("device", "event_type", "is_delivered", "created_at")
+    list_filter = ("event_type", "is_delivered", "created_at")
+    search_fields = ("device__device_identifier", "message")

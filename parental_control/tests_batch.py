@@ -85,3 +85,70 @@ class BatchSyncTestCase(APITestCase):
         self.assertEqual(self.device.accessibility_text_logs.count(), 1)
         # installed apps updated; still 1 record
         self.assertEqual(self.device.installed_apps.count(), 1)
+
+    def test_client_id_is_actually_persisted(self):
+        """Klient yuborgan UUID bazaga saqlanishi SHART.
+
+        XATO bo'lsa DRF `id` maydonini `read_only` qilib tashlab ketadi,
+        `bulk_create` har syncda yangi tasodifiy UUID yaratadi va
+        `ignore_conflicts` hech qachon ishga tushmaydi — ya'ni bir xil log
+        har syncda yana yozilib, bazada yig'ilib boradi.
+        """
+        url = reverse("sync_batch")
+        auth_header = f"DeviceBearer {self.device_id}:{self.token}"
+        payload = {
+            "location_logs": [
+                {
+                    "id": "550e8400-e29b-41d4-a716-4466554400aa",
+                    "latitude": 40.7128,
+                    "longitude": -74.0060,
+                    "recorded_at": "2026-10-03T11:00:00Z",
+                }
+            ],
+        }
+        response = self.client.post(url, payload, format="json", HTTP_AUTHORIZATION=auth_header)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        log = self.device.location_logs.get()
+        self.assertEqual(str(log.id), "550e8400-e29b-41d4-a716-4466554400aa")
+
+    def test_sync_without_client_id_still_works(self):
+        """Eski ilovalar `id` yubormaydi — server o'zi yaratishi kerak."""
+        url = reverse("sync_batch")
+        auth_header = f"DeviceBearer {self.device_id}:{self.token}"
+        payload = {
+            "location_logs": [
+                {
+                    "latitude": 40.7128,
+                    "longitude": -74.0060,
+                    "recorded_at": "2026-10-03T12:00:00Z",
+                }
+            ],
+        }
+        response = self.client.post(url, payload, format="json", HTTP_AUTHORIZATION=auth_header)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(self.device.location_logs.count(), 1)
+        self.assertIsNotNone(self.device.location_logs.get().id)
+
+    def test_different_ids_create_different_rows(self):
+        """Turli UUID -> turli qator (tasodifiy yig'ilish bo'lmasligi)."""
+        url = reverse("sync_batch")
+        auth_header = f"DeviceBearer {self.device_id}:{self.token}"
+        for suffix in ("b1", "b2", "b3"):
+            response = self.client.post(
+                url,
+                {
+                    "location_logs": [
+                        {
+                            "id": f"550e8400-e29b-41d4-a716-4466554400{suffix}",
+                            "latitude": 40.7128,
+                            "longitude": -74.0060,
+                            "recorded_at": "2026-10-03T13:00:00Z",
+                        }
+                    ]
+                },
+                format="json",
+                HTTP_AUTHORIZATION=auth_header,
+            )
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(self.device.location_logs.count(), 3)

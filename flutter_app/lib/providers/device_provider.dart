@@ -125,11 +125,9 @@ class DeviceProvider extends ChangeNotifier {
   }
 
   Future<Map<String, dynamic>> pairDevice({
-    required String deviceIdentifier,
     required String pairingCode,
   }) async {
     final result = await _repo.pairDevice(
-      deviceIdentifier: deviceIdentifier,
       pairingCode: pairingCode,
     );
     if (result['success'] == true) {
@@ -189,8 +187,16 @@ class DeviceProvider extends ChangeNotifier {
   }
 
   // ---- SOS Alerts ----
-  Future<bool> sendSOS(String deviceId) async {
-    return await _repo.sendSOS(deviceId);
+  Future<bool> sendSOS(
+    String deviceId, {
+    required double latitude,
+    required double longitude,
+  }) async {
+    return await _repo.sendSOS(
+      deviceId,
+      latitude: latitude,
+      longitude: longitude,
+    );
   }
 
   void clear() {

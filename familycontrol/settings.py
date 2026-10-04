@@ -153,8 +153,14 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_THROTTLE_RATES": {
         "pair": "5/minute",
+        "claim": "10/minute",
     },
 }
+
+# Telegram bildirishnomalari uchun bot tokeni.
+# DIQQAT: bu qiymat FAQAT serverda bo'lishi kerak. Ilovaga (Flutter/Android)
+# hech qachon joylashtirmang — APK ni ochgan har kim tokeni topib oladi.
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 
 from datetime import timedelta
 

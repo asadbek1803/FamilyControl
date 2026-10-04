@@ -1,7 +1,6 @@
 import 'dart:convert';
 import '../core/network/api_client.dart';
 import '../core/database/local_database.dart';
-import '../core/constants/api_constants.dart';
 
 class SyncRepository {
   final _apiClient = ApiClient();

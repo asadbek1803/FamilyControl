@@ -36,7 +36,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _passwordController.text,
     );
 
-    if (!success && mounted) {
+    if (success && mounted) {
+      Navigator.pop(context);
+    } else if (!success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(auth.errorMessage ?? 'Ro\'yxatdan o\'tish muvaffaqiyatsiz'),

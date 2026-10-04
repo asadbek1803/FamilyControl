@@ -12,7 +12,6 @@ class PairDeviceScreen extends StatefulWidget {
 
 class _PairDeviceScreenState extends State<PairDeviceScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _identifierController = TextEditingController();
   final _pairingCodeController = TextEditingController();
 
   bool _isLoading = false;
@@ -21,7 +20,6 @@ class _PairDeviceScreenState extends State<PairDeviceScreen> {
 
   @override
   void dispose() {
-    _identifierController.dispose();
     _pairingCodeController.dispose();
     super.dispose();
   }
@@ -43,7 +41,6 @@ class _PairDeviceScreenState extends State<PairDeviceScreen> {
     });
 
     final result = await context.read<DeviceProvider>().pairDevice(
-          deviceIdentifier: _identifierController.text.trim(),
           pairingCode: _pairingCodeController.text.trim(),
         );
 
@@ -132,24 +129,17 @@ class _PairDeviceScreenState extends State<PairDeviceScreen> {
                   ),
                   SizedBox(height: 8),
                   Text('1. Bolaning telefonida FamilyControl ilovasini oching'),
-                  Text('2. Qurilma identifikatorini nusxa oling'),
-                  Text('3. Pairing code 15 daqiqa ichida amal qiladi'),
+                  Text('2. Ekrandagi 6 xonali ulash kodini kiriting'),
+                  Text('3. Kod 30 daqiqa ichida amal qiladi'),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 24),
-          TextFormField(
-            controller: _identifierController,
-            decoration: const InputDecoration(
-              labelText: 'Qurilma identifikatori',
-              hintText: 'Masalan: DEVICE-12345',
-              prefixIcon: Icon(Icons.smartphone),
-              border: OutlineInputBorder(),
-            ),
-            textInputAction: TextInputAction.next,
-            validator: (v) =>
-                (v == null || v.isEmpty) ? 'Majburiy maydon' : null,
+          const SizedBox(height: 16),
+          Text(
+            'Kod eskirgan bo\'lsa, bolaning telefonida FamilyControl → «Yangi kod olish» '
+            'tugmasini bosing.',
+            style: TextStyle(color: Colors.grey, fontSize: 13),
           ),
           const SizedBox(height: 16),
           TextFormField(
