@@ -148,6 +148,35 @@ Token `@BotFather` orqali olinadi.
 Server chat ID ni `getChat` orqali tekshiradi — shuning uchun "ID to'g'ri" degan
 javob ishonchli bo'ladi. Bir chat ID faqat bitta akkauntga ulanadi.
 
+### "Telegram Bot tokeni sozlanmagan" xatosi
+
+Bu xato shuni anglatadi: **serverda** `TELEGRAM_BOT_TOKEN` yo'q. Ilovada emas,
+serverda bo'lishi kerak.
+
+**Railway uchun:**
+
+1. Railway dashboard → sizning servisingiz → **Variables**
+2. `TELEGRAM_BOT_TOKEN` nomi bilan yangi variable qo'shing
+3. Qiymatga @BotFather'dan olgan tokenni yozing
+4. **Redeploy** bosing — o'zgarish faqat keyingi deploy'da kuchga kiradi
+
+**Mahalliy kompyuter uchun:** loyiha papkasida `.env` fayli yarating:
+
+```
+TELEGRAM_BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrsTUVwxyz
+```
+
+**Tekshirish:**
+
+```bash
+python manage.py check_telegram              # token ishlayaptimi?
+python manage.py check_telegram 123456789    # ushbu chat ga xabar yuborib sinash
+```
+
+> Eslatma: eski token `8887166286:AAH47aar4N0Q_2qZtkr1MNxEyH0Ir7zApDU` allaqach
+> APK ichida oshkor bo'lgan. Uni **ishlatmang** — avval @BotFather orqali
+> `/revoke` qilib, yangi bot/token yarating.
+
 ### Yuboriladigan hodisalar
 
 | Hodisa | Manba |

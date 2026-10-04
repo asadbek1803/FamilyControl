@@ -2,18 +2,18 @@
   "base_url": "https://familycontrol-production.up.railway.app/api/v1",
   "_izoh": [
     "FamilyControl ilovasi shu fayldan server manzilini oladi.",
-    "base_url ni o'z serveringiz manzili bilan almashtiring.",
-    "Manzil https:// bilan boshlanishi SHART (mahalliy ishlash uchun",
-    "http://10.0.2.2:8000/api/v1 yoki http://127.0.0.1:8000/api/v1 mumkin).",
-    "",
-    "Qachon yangilash kerak: server ko'chsa, port o'zgarsa yoki domen",
-    "o'zgarsa shu faylni tahrirlang va GitHub'ga yuboring. Ilovalar",
+    "base_url ni o'z serveringiz manziliga almashtiring — ilovalar",
     "keyingi ochilishida (6 soatdan keyin) yangi manzilni oladi.",
+    "",
+    "Manzil https:// bilan boshlanishi SHART. Mahalliy ishlash uchun",
+    "http://10.0.2.2:8000/api/v1 yoki http://127.0.0.1:8000/api/v1 mumkin.",
     "",
     "XAVFSIZLIK: fayl imzolanmagan. Kimdir repozitoriyaga yoki DNS'ga",
     "kirish huquqiga ega bo'lsa, u shu qiymatni o'z serveriga",
-    "almashtirishi mumkin. Shuning uchun repozitoriyani 2FA bilan",
-    "himoyalang va kirish huquqini faqat ishonchli odamlarga bering.",
-    "Kalitni botga yubormang: bot tokeni APK ichida bo'lishi mumkin emas."
+    "almashtirishi mumkin. Shuning uchun GitHub akkauntiga 2FA yoqing va",
+    "kirish huquqini faqat ishonchli odamlarga bering.",
+    "",
+    "Kalitni Telegram yoki messajer orqali yubormang — ilova bunday",
+    "xabarlarni umuman qabul qilmaydi."
   ]
 }

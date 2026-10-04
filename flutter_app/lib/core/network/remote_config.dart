@@ -41,7 +41,7 @@ class RemoteConfig {
   /// { "base_url": "https://api.mening-domainim.uz/api/v1" }
   /// ```
   static const String sourceUrl =
-      'https://raw.githubusercontent.com/REPO-OZGARTIRING/familycontrol/main/familycontrol_config.json';
+      'https://raw.githubusercontent.com/asadbek1803/FamilyControl/refs/heads/main/familycontrol_config.json';
 
   /// Kamida shuncha vaqt oralig'ida GitHub'ga so'rov yuborilmaydi.
   /// Sababi: har ilova ochilishida so'rov yuborish kerak emas (tezlik +

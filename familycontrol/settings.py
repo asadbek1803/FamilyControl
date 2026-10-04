@@ -15,6 +15,23 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# `.env` faylini o'qish (mahalliy ishlash uchun qulaylik).
+#
+# Railway/Heroku kabi platformalarda muhit o'zgaruvchilari jarayonga to'g'ridan
+# to'g'ri beriladi, shuning uchun u yerda `.env` kerak emas va bu qadam
+# hech narsani buzmaydi. Mahalliy kompyuterda esa `TELEGRAM_BOT_TOKEN` ni
+# `.env` fayliga yozib qo'yish yetarli.
+#
+# DIQQAT: `.env` hech qachon GitHub'ga yuklanmasin (`.gitignore` da turibdi) —
+# uning ichida maxfiy ma'lumotlar bor.
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(BASE_DIR / ".env")
+except ImportError:
+    # python-dotenv o'rnatilmagan bo'lsa muhit o'zgaruvchilaridan foydalaniladi.
+    pass
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/

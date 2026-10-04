@@ -1,17 +1,41 @@
 class ApiConstants {
   /// Server manzili. Ilova ishga tushganda `RemoteConfig` shu qiymatni GitHub'dagi
-  /// `familycontrol_config.json` fayli bilan yangilaydi (boshqa holatda bu
-  /// qiymat ishlatiladi).
+  /// `familycontrol_config.json` fayli bilan yangilaydi (boshqa holatda
+  /// `defaultBaseUrl` ishlatiladi).
   ///
   /// Eski versiya bu qiymatni Telegram orqali almashtirardi — bu xavfli
   /// mexanizm edi, batafsil `lib/core/network/remote_config.dart` da.
-  static String baseUrl = defaultBaseUrl;
+  ///
+  /// Mahalliy server bilan ishlash uchun build vaqtida bering:
+  ///   flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000/api/v1
+  static String baseUrl = _buildBaseUrl();
 
-  /// Change this to your server IP when testing on real device
-  /// For Android emulator: 10.0.2.2
-  /// For iOS simulator: localhost
-  /// For real device: your PC's local IP (e.g., 192.168.1.100)
-  static const String defaultBaseUrl = 'http://10.0.2.2:8000/api/v1';
+  /// Build vaqtida `--dart-define=API_BASE_URL=...` orqali berilgan manzil.
+  ///
+  /// Berilmasa `defaultBaseUrl` (GitHub'dan olingan manzil zaxirasi).
+  static String _buildBaseUrl() {
+    const fromBuild = String.fromEnvironment('API_BASE_URL');
+    if (fromBuild.isNotEmpty) return fromBuild;
+    return defaultBaseUrl;
+  }
+
+  /// Zaxira (fallback) server manzili.
+  ///
+  /// Server manzili asosan GitHub'dan olinadi (qarang
+  /// `lib/core/network/remote_config.dart`). Bu qiymat faqat GitHub
+  /// ishlamaganda yoki internet yo'q bo'lganda ishlatiladi.
+  ///
+  /// Bu shuning uchun HAQIQIY server manzili bo'lishi SHART: agar emulator
+  /// manzili (`10.0.2.2`) qo'yilsa, GitHub ishlamagan holatda ilova
+  /// haqiqiy telefon hech narsaga ulana olmaydi va "server topilmadi"
+  /// holatida qoladi.
+  static const String defaultBaseUrl =
+      'https://familycontrol-production.up.railway.app/api/v1';
+
+  /// Mahalliy ishlash (emulator / kompyuter) uchun. Almashtirish uchun
+  /// `flutter run` dan oldin quyidagini bajarish mumkin:
+  ///   --dart-define=API_BASE_URL=http://10.0.2.2:8000/api/v1
+  static const String localBaseUrl = 'http://10.0.2.2:8000/api/v1';
 
   // Auth endpoints
   static const String login = '/auth/token/';
