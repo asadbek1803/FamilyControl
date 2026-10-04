@@ -1,13 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../providers/device_provider.dart';
-import '../../models/child_device.dart';
-import '../../core/utils/date_utils.dart';
-import 'device_detail_screen.dart';
-import '../monitoring/location_screen.dart';
-import '../monitoring/apps_screen.dart';
-import '../monitoring/usage_screen.dart';
 
+import '../../core/utils/date_utils.dart';
+import '../../models/child_device.dart';
+import '../../providers/device_provider.dart';
+import 'device_detail_screen.dart';
+import '../monitoring/apps_screen.dart';
+import '../monitoring/contacts_screen.dart';
+import '../monitoring/events_screen.dart';
+import '../monitoring/location_screen.dart';
+import '../monitoring/notifications_screen.dart';
+import '../monitoring/sos_screen.dart';
+import '../monitoring/time_limits_screen.dart';
+import '../monitoring/usage_screen.dart';
+import '../monitoring/zones_screen.dart';
+
+/// Qurilma tanlash ekrani — keyin tegishli bo'limga o'tadi.
+///
+/// Bu ekran har bir bo'lim uchun "qaysi farzand?" savolini beradi. Ota-ona
+/// ko'p farzandli bo'lsa, bu qadam zarur: bir xil bo'lim bir nechta farzand
+/// uchun turli ma'lumot ko'rsatadi.
 class DeviceListScreen extends StatefulWidget {
   final String? openMonitoring;
 
@@ -18,6 +30,25 @@ class DeviceListScreen extends StatefulWidget {
 }
 
 class _DeviceListScreenState extends State<DeviceListScreen> {
+  /// `openMonitoring` qiymati -> ekran sarlavhasi.
+  ///
+  /// Eski versiya `switch` da faqat `location`/`apps`/`usage` ni
+  /// ko'rib chiqar edi. `notifications`, `zones`, `limits`, `sos`, `events`,
+  /// `contacts` kabi yangilar `default` ga tushib, foydalanuvchining
+  /// kutilgan ekrani o'rniga **qurilma tafsilotlarini** ochardi — asosiy
+  /// menyudagi 6 ta kartadan biri (`Bildirishnomalar`) butunlay ishlamardi.
+  static const Map<String, String> _titles = {
+    'location': 'Joylashuv',
+    'apps': 'Ilovalar',
+    'usage': 'Foydalanish',
+    'zones': 'Xavfsizlik zonalari',
+    'limits': 'Vaqt limitlari',
+    'sos': 'SOS signallari',
+    'events': 'Hodisa tarixi',
+    'contacts': 'Kontaktlar',
+    'notifications': 'Bildirishnomalar',
+  };
+
   @override
   void initState() {
     super.initState();
@@ -27,12 +58,13 @@ class _DeviceListScreenState extends State<DeviceListScreen> {
   }
 
   void _navigateToMonitoring(BuildContext context, ChildDevice device) {
+    // Har bir `case` o'z ekranini ochishi SHART. `default` ga tushib
+    // ketishi — xato: foydalanuvchi boshqa bo'limni kutayotgan edi.
     switch (widget.openMonitoring) {
       case 'location':
         Navigator.push(
           context,
-          MaterialPageRoute(
-              builder: (_) => LocationScreen(device: device)),
+          MaterialPageRoute(builder: (_) => LocationScreen(device: device)),
         );
         break;
       case 'apps':
@@ -45,6 +77,43 @@ class _DeviceListScreenState extends State<DeviceListScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => UsageScreen(device: device)),
+        );
+        break;
+      case 'zones':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => ZonesScreen(device: device)),
+        );
+        break;
+      case 'limits':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => TimeLimitsScreen(device: device)),
+        );
+        break;
+      case 'sos':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => SosScreen(device: device)),
+        );
+        break;
+      case 'events':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => EventsScreen(device: device)),
+        );
+        break;
+      case 'contacts':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => ContactsScreen(device: device)),
+        );
+        break;
+      case 'notifications':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (_) => NotificationsScreen(device: device)),
         );
         break;
       default:
@@ -60,12 +129,10 @@ class _DeviceListScreenState extends State<DeviceListScreen> {
   Widget build(BuildContext context) {
     final provider = context.watch<DeviceProvider>();
 
-    String title = 'Qurilmalar';
-    if (widget.openMonitoring == 'location') title = 'Joylashuv - Qurilma tanlash';
-    if (widget.openMonitoring == 'apps') title = 'Ilovalar - Qurilma tanlash';
-    if (widget.openMonitoring == 'usage') title = 'Foydalanish - Qurilma tanlash';
-    if (widget.openMonitoring == 'notifications')
-      title = 'Bildirishnomalar - Qurilma tanlash';
+    final sectionTitle = _titles[widget.openMonitoring];
+    final title = sectionTitle == null
+        ? 'Qurilmalar'
+        : '$sectionTitle — qurilmani tanlang';
 
     return Scaffold(
       appBar: AppBar(
@@ -73,6 +140,7 @@ class _DeviceListScreenState extends State<DeviceListScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
+            tooltip: 'Yangilash',
             onPressed: () => context.read<DeviceProvider>().loadDevices(),
           ),
         ],
@@ -80,20 +148,32 @@ class _DeviceListScreenState extends State<DeviceListScreen> {
       body: provider.isLoading
           ? const Center(child: CircularProgressIndicator())
           : provider.devices.isEmpty
-              ? _EmptyDevices()
+              ? _EmptyDevices(isPairingStep: sectionTitle != null)
               : RefreshIndicator(
                   onRefresh: () => context.read<DeviceProvider>().loadDevices(),
-                  child: ListView.separated(
+                  child: ListView(
                     padding: const EdgeInsets.all(16),
-                    itemCount: provider.devices.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (context, index) {
-                      final device = provider.devices[index];
-                      return _DeviceCard(
-                        device: device,
-                        onTap: () => _navigateToMonitoring(context, device),
-                      );
-                    },
+                    children: [
+                      if (provider.devices.length > 1)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Text(
+                            '${provider.devices.length} ta qurilma ulangan — '
+                            'kerakli farzandni tanlang',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ),
+                      for (final device in provider.devices) ...[
+                        _DeviceCard(
+                          device: device,
+                          onTap: () => _navigateToMonitoring(context, device),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                    ],
                   ),
                 ),
     );
@@ -116,26 +196,52 @@ class _DeviceCard extends StatelessWidget {
                 : Colors.red)
         : Colors.grey;
 
+    // Farzand nomi bo'lmasa nom berishni taklif qilamiz — aks holda
+    // ota-ona ko'p qurilmalarda "qaysi farzand?" savoliga javob topa olmaydi.
+    final needsName = device.childName.trim().isEmpty;
+
     return Card(
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: device.isActive
-              ? Colors.green.withOpacity(0.15)
-              : Colors.grey.withOpacity(0.15),
+              ? Colors.green.withValues(alpha: 0.15)
+              : Colors.grey.withValues(alpha: 0.15),
           child: Icon(
             Icons.smartphone,
             color: device.isActive ? Colors.green : Colors.grey,
           ),
         ),
-        title: Text(
-          device.deviceName.isNotEmpty
-              ? device.deviceName
-              : device.deviceIdentifier,
-          style: const TextStyle(fontWeight: FontWeight.bold),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                needsName
+                    ? device.deviceName.isNotEmpty
+                        ? device.deviceName
+                        : device.deviceIdentifier
+                    : device.displayName,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (!device.isPaired)
+              const Padding(
+                padding: EdgeInsets.only(left: 4),
+                child: Icon(Icons.link_off, size: 14, color: Colors.orange),
+              ),
+          ],
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Farzand nomi bor bo'lsa qurilma nomini mayda shriftda
+            // ko'rsatamiz (bir farzandning bir nechta qurilmasi bo'lganda
+            // ularni farqlash kerak).
+            if (!needsName && device.deviceName.trim().isNotEmpty)
+              Text(
+                device.deviceName,
+                style: const TextStyle(fontSize: 11, color: Colors.grey),
+              ),
             if (device.lastSeen != null)
               Text(
                 'Oxirgi faollik: ${AppDateUtils.timeAgo(device.lastSeen)}',
@@ -180,25 +286,37 @@ class _DeviceCard extends StatelessWidget {
 }
 
 class _EmptyDevices extends StatelessWidget {
+  final bool isPairingStep;
+
+  const _EmptyDevices({this.isPairingStep = false});
+
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.devices_other, size: 80, color: Colors.grey[400]),
-          const SizedBox(height: 16),
-          Text(
-            'Hech qanday qurilma topilmadi',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Bolaning qurilmasini qo\'shish uchun\n"Qurilma ulash" tugmasini bosing',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey[600]),
-          ),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.devices_other, size: 80, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              'Hech qanday qurilma topilmadi',
+              style: Theme.of(context).textTheme.titleMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              isPairingStep
+                  ? 'Bu bo\'limni ko\'rish uchun avval boshqa bo\'limda '
+                      'qurilma ulash kerak'
+                  : 'Bolaning qurilmasini qo\'shish uchun\n'
+                      '"Qurilma ulash" tugmasini bosing',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+          ],
+        ),
       ),
     );
   }

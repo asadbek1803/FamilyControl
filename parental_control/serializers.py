@@ -7,7 +7,6 @@ from .models import (
     InstalledApp,
     AppUsageLog,
     NotificationLog,
-    AccessibilityTextLog,
     GeoZone,
     AppTimeLimit,
     Contact,
@@ -164,18 +163,39 @@ class NotificationLogSerializer(ClientGeneratedIdMixin, serializers.ModelSeriali
         fields = ["id", "package_name", "title", "text", "recorded_at"]
 
 
-class AccessibilityTextLogSerializer(
-    ClientGeneratedIdMixin, serializers.ModelSerializer
-):
-    class Meta:
-        model = AccessibilityTextLog
-        fields = ["id", "package_name", "extracted_text", "context_type", "recorded_at"]
-
 class ChildDeviceSerializer(serializers.ModelSerializer):
+    """Ota-onaning qurilma ro'yxati va bir qurilmani tahrirlash."""
+
+    is_paired = serializers.BooleanField(read_only=True)
+    display_child_name = serializers.CharField(read_only=True)
+
     class Meta:
         model = ChildDevice
-        fields = ['id', 'device_identifier', 'device_name', 'is_active', 'battery_level', 'last_seen', 'created_at']
-        read_only_fields = ['id', 'created_at', 'last_seen']
+        fields = [
+            "id",
+            "device_identifier",
+            "device_name",
+            "child_name",
+            "display_child_name",
+            "is_active",
+            "is_paired",
+            "battery_level",
+            "last_seen",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at", "last_seen", "device_identifier"]
+
+    def validate_child_name(self, value):
+        # Bo'sh qoldirilsa farzand "nomsiz" bo'lib qoladi; `display_child_name`
+        # `device_name` ga qaytadi, lekin noto'g'ri belgi kiritmaslik uchun
+        # uzunlikni va bo'sh joylarni tozalaymiz.
+        value = (value or "").strip()
+        if len(value) > 120:
+            raise serializers.ValidationError("Farzand nomi juda uzun (120 belgi).")
+        return value
+
+    def validate_device_name(self, value):
+        return (value or "").strip()
 
 from django.contrib.auth.models import User
 
@@ -195,16 +215,68 @@ class ParentRegisterSerializer(serializers.ModelSerializer):
         return user
 
 class GeoZoneSerializer(serializers.ModelSerializer):
+    """Xavfsizlik zonasi.
+
+    Koordinata talab qilinadi: `(0, 0)` — bu Osiyo chekkasidagi "dengiz" nuqtasi
+    (Gulf of Guinea) va ota-onaning xatosi. Shuning uchun 0/0 qabul qilinmaydi.
+    """
+
     class Meta:
         model = GeoZone
-        fields = ["id", "name", "radius_meters", "created_at"]
+        fields = ["id", "name", "latitude", "longitude", "radius_meters", "created_at"]
         read_only_fields = ["id", "created_at"]
+
+    def validate_latitude(self, value):
+        if not (-90.0 <= value <= 90.0):
+            raise serializers.ValidationError("Latitude -90 dan 90 orasida bo'lishi kerak.")
+        return value
+
+    def validate_longitude(self, value):
+        if not (-180.0 <= value <= 180.0):
+            raise serializers.ValidationError(
+                "Longitude -180 dan 180 orasida bo'lishi kerak."
+            )
+        return value
+
+    def validate(self, attrs):
+        latitude = attrs.get("latitude", getattr(self.instance, "latitude", 0.0))
+        longitude = attrs.get("longitude", getattr(self.instance, "longitude", 0.0))
+
+        # Ikkalasi ham 0 bo'lsa — koordinata umuman yuborilmagan.
+        if latitude == 0.0 and longitude == 0.0:
+            raise serializers.ValidationError(
+                {
+                    "latitude": "Zona markazining koordinatasini kiriting "
+                    "(yoki bolaning oxirgi joylashuvidan foydalanishni tanlang)."
+                }
+            )
+
+        radius = attrs.get("radius_meters", getattr(self.instance, "radius_meters", None))
+        if radius is not None and not (10.0 <= radius <= 10000.0):
+            raise serializers.ValidationError(
+                {"radius_meters": "Radius 10 m dan 10 km orasida bo'lishi kerak."}
+            )
+        return attrs
+
 
 class AppTimeLimitSerializer(serializers.ModelSerializer):
     class Meta:
         model = AppTimeLimit
-        fields = ["id", "package_name", "max_daily_minutes", "block_after_time", "is_active"]
+        fields = [
+            "id",
+            "package_name",
+            "max_daily_minutes",
+            "block_after_time",
+            "is_active",
+        ]
         read_only_fields = ["id"]
+
+    def validate_max_daily_minutes(self, value):
+        if not (1 <= value <= 1440):
+            raise serializers.ValidationError(
+                "Kunlik limit 1 daqiqadan 1440 daqiqa (24 soat) orasida bo'lishi kerak."
+            )
+        return value
 
 class ContactSerializer(serializers.ModelSerializer):
     class Meta:
@@ -299,3 +371,75 @@ class TelegramNotificationSettingSerializer(serializers.ModelSerializer):
             instance.chat_title = self.context["resolved_chat_title"]
             instance.save(update_fields=["chat_title"])
         return instance
+
+
+# --------------------------------------------------------------------------
+# Boshqaruv paneli (dashboard)
+#
+# DIQQAT: bu blok faylning OXIRIDA turishi SHART. `ParentDashboardSerializer`
+# `DeviceEventSerializer` ga murodaat qiladi; agar u yuqorida (serializers.py
+# dagi `ChildDeviceSerializer` yonida) bo'lsa, import vaqtida `NameError`
+# chiqadi.
+# --------------------------------------------------------------------------
+
+
+class DeviceSummarySerializer(serializers.Serializer):
+    """Bitta qurilmaning panel uchun qisqacha holati.
+
+    Bu `ModelSerializer` emas — ma'lumot `ParentDashboardView` da agregatsiya
+    qilinadi va bu yerda faqat shakl aniqlanadi (aggregate qiymatlar JSON'dan
+    keladi).
+    """
+
+    id = serializers.UUIDField()
+    device_name = serializers.CharField()
+    child_name = serializers.CharField()
+    is_active = serializers.BooleanField()
+    is_paired = serializers.BooleanField()
+    battery_level = serializers.FloatField(allow_null=True)
+    last_seen = serializers.DateTimeField(allow_null=True)
+    today_screen_time_ms = serializers.IntegerField()
+    installed_apps_count = serializers.IntegerField()
+    blocked_apps_count = serializers.IntegerField()
+    contacts_count = serializers.IntegerField()
+    zones_count = serializers.IntegerField()
+    active_limits_count = serializers.IntegerField()
+    active_sos_count = serializers.IntegerField()
+    last_sos_at = serializers.DateTimeField(allow_null=True)
+    last_event_type = serializers.CharField(allow_null=True, allow_blank=True)
+    last_event_message = serializers.CharField(allow_null=True, allow_blank=True)
+    last_event_at = serializers.DateTimeField(allow_null=True)
+
+
+class ChildSummarySerializer(serializers.Serializer):
+    """Bir farzand va uning qurilmalari."""
+
+    child_name = serializers.CharField()
+    devices_count = serializers.IntegerField()
+    online_count = serializers.IntegerField()
+    today_screen_time_ms = serializers.IntegerField()
+    devices = DeviceSummarySerializer(many=True)
+
+
+class DashboardSummarySerializer(serializers.Serializer):
+    children_count = serializers.IntegerField()
+    devices_count = serializers.IntegerField()
+    online_count = serializers.IntegerField()
+    low_battery_count = serializers.IntegerField()
+    blocked_apps_count = serializers.IntegerField()
+    active_sos_count = serializers.IntegerField()
+    today_screen_time_ms = serializers.IntegerField()
+
+
+class ParentDashboardSerializer(serializers.Serializer):
+    """`GET /dashboard/` javobi.
+
+    Bitta so'rovda ota-onaning BARCHA farzandlari. Avval har bir bo'lim uchun
+    avval qurilma tanlash, keyin alohida so'rov kerak edi — ya'ni "barcha
+    farzandni bir vaqtda ko'rish" imkoni yo'q edi.
+    """
+
+    generated_at = serializers.DateTimeField()
+    summary = DashboardSummarySerializer()
+    children = ChildSummarySerializer(many=True)
+    recent_events = DeviceEventSerializer(many=True)

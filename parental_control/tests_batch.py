@@ -62,15 +62,6 @@ class BatchSyncTestCase(APITestCase):
                     "recorded_at": "2026-10-03T10:00:00Z",
                 }
             ],
-            "accessibility_text_logs": [
-                {
-                    "id": "550e8400-e29b-41d4-a716-446655440004",
-                    "package_name": "com.test.app",
-                    "extracted_text": "text",
-                    "context_type": "view",
-                    "recorded_at": "2026-10-03T10:00:00Z",
-                }
-            ],
         }
         response = self.client.post(url, payload, format="json", HTTP_AUTHORIZATION=auth_header)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -82,9 +73,58 @@ class BatchSyncTestCase(APITestCase):
         self.assertEqual(self.device.location_logs.count(), 1)
         self.assertEqual(self.device.app_usage_logs.count(), 1)
         self.assertEqual(self.device.notification_logs.count(), 1)
-        self.assertEqual(self.device.accessibility_text_logs.count(), 1)
         # installed apps updated; still 1 record
         self.assertEqual(self.device.installed_apps.count(), 1)
+
+    def test_accessibility_text_channel_is_gone(self):
+        """Ekran matni kanali butunlay olib tashlangan (2026-10).
+
+        Ikki qat'iy tekshiruv:
+
+        1. `POST /sync/batch/` `accessibility_text_logs` kalitini qabul qilmaydi
+           — so'rov xatosiz o'tadi (200), lekin hech narsa saqlanmaydi.
+           Aks holda eski ilovaning "men yubordim" deb o'ylashi, ota-ona esa
+           bo'sh ro'yxat ko'rishi mumkin edi.
+
+        2. `GET /devices/<id>/accessibility/` endi mavjud emas (404) — ya'ni
+           kelajakda kanalni "qayta yoqib qo'yish" uchun tayyor yo'l qolmaydi.
+        """
+        url = reverse("sync_batch")
+        auth_header = f"DeviceBearer {self.device_id}:{self.token}"
+
+        response = self.client.post(
+            url,
+            {
+                "accessibility_text_logs": [
+                    {
+                        "id": "550e8400-e29b-41d4-a716-4466554400ff",
+                        "package_name": "com.test.app",
+                        "extracted_text": "maxfiy matn",
+                        "context_type": "view",
+                        "recorded_at": "2026-10-03T10:00:00Z",
+                    }
+                ]
+            },
+            format="json",
+            HTTP_AUTHORIZATION=auth_header,
+        )
+
+        # Kalit tanilib o'tiladi — server xato bermaydi (eski ilovalar
+        # ketsa, ular butunlay ishlamay qolmasligi kerak).
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # ... lekin saqlanmaydi. Model butunlay o'chirilgani uchun
+        # import qilib bo'lmaydi — mavjudligini tekshiramiz.
+        from . import models as pc_models
+
+        self.assertFalse(hasattr(pc_models, "AccessibilityTextLog"))
+        self.assertFalse(hasattr(self.device, "accessibility_text_logs"))
+
+        # Ota-ona endpoint'i ham yo'q.
+        read_url = f"/api/v1/devices/{self.device_id}/accessibility/"
+        self.assertEqual(
+            self.client.get(read_url).status_code, status.HTTP_404_NOT_FOUND
+        )
 
     def test_client_id_is_actually_persisted(self):
         """Klient yuborgan UUID bazaga saqlanishi SHART.

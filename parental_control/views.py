@@ -9,7 +9,6 @@ from .models import (
     InstalledApp,
     AppUsageLog,
     NotificationLog,
-    AccessibilityTextLog,
     DeviceEvent,
 )
 from .serializers import (
@@ -19,7 +18,6 @@ from .serializers import (
     InstalledAppSerializer,
     AppUsageLogSerializer,
     NotificationLogSerializer,
-    AccessibilityTextLogSerializer,
     DeviceEventSerializer,
 )
 from .permissions import IsAuthenticatedDevice
@@ -187,12 +185,25 @@ class BatchSyncView(APIView):
         installed_apps = data.get("installed_apps", [])
         app_usage_logs = data.get("app_usage_logs", [])
         notification_logs = data.get("notification_logs", [])
-        accessibility_text_logs = data.get("accessibility_text_logs", [])
 
         if any(len(x) > MAX_BATCH for x in [
-            location_logs, installed_apps, app_usage_logs, notification_logs, accessibility_text_logs
+            location_logs, installed_apps, app_usage_logs, notification_logs
         ]):
             return Response({"error": f"Batch size exceeds limit of {MAX_BATCH}"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # ------------------------------------------------------------------------
+        # `accessibility_text_logs` QABUL QILINMAYDI (2026-10).
+        #
+        # Bu — ekrandagi matnni o'qish kanali. U serverda tayyor turgan, lekin
+        # Android ilovasi hech narsa yubormasdi: manifestda
+        # `canRetrieveWindowContent="false"` va `ChildAccessibilityService`
+        # faqat Sozlamalar/ilova o'rnatish ekranlarini PIN bilan bloklaydi.
+        #
+        # Endi kanal butunlay olib tashlandi (model, serializer, endpoint).
+        # Sabab: o'lik kod — kelajakda kimdir `canRetrieveWindowContent="true"`
+        # qo'ysa, yashirin kuzatuv ishlab ketardi. Bu tizim SMS, chat yoki
+        # ekran matnini yig'maydi; bu qaror o'zgarishining oldini oladi.
+        # ------------------------------------------------------------------------
 
         with transaction.atomic():
             if location_logs:
@@ -236,17 +247,6 @@ class BatchSyncView(APIView):
                 NotificationLog.objects.bulk_create(
                     [
                         NotificationLog(**{**item, "device": device})
-                        for item in serializer.validated_data
-                    ],
-                    ignore_conflicts=True,
-                )
-
-            if accessibility_text_logs:
-                serializer = AccessibilityTextLogSerializer(data=accessibility_text_logs, many=True)
-                serializer.is_valid(raise_exception=True)
-                AccessibilityTextLog.objects.bulk_create(
-                    [
-                        AccessibilityTextLog(**{**item, "device": device})
                         for item in serializer.validated_data
                     ],
                     ignore_conflicts=True,

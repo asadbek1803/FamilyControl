@@ -15,6 +15,11 @@ class ChildDevice(models.Model):
     parent = models.ForeignKey(User, on_delete=models.CASCADE, related_name="devices", null=True, blank=True)
     device_identifier = models.CharField(max_length=255, unique=True)
     device_name = models.CharField(max_length=255, blank=True)
+    # Qurilma qaysi farzandga tegishli. Bitta farzand bir nechta qurilma
+    # ishlatishi mumkin (telefon + planshet) — boshqaruv panelida shu nom
+    # bo'yicha guruhlanadi. Bo'sh bo'lsa, eski ma'lumot `device_name` dan
+    # olinadi.
+    child_name = models.CharField(max_length=120, blank=True, default="")
     pairing_code = models.CharField(max_length=6, blank=True, null=True, db_index=True)
     pairing_code_expires_at = models.DateTimeField(blank=True, null=True)
     device_token_hash = models.CharField(max_length=64, blank=True, null=True, db_index=True)
@@ -54,6 +59,15 @@ class ChildDevice(models.Model):
     def is_paired(self):
         """Ota-ona shu qurilma bilan bog'langanmi."""
         return self.parent_id is not None and self.is_active
+
+    @property
+    def display_child_name(self):
+        """Boshqaruv panelida ko'rsatiladigan farzand nomi.
+
+        `child_name` ota-ona tomonidan qo'yiladi. Uni o'zgartirmaganlar uchun
+        `device_name` ga qaytamiz — aks holda panelda "Nomsiz" bo'lib qolardi.
+        """
+        return self.child_name or self.device_name or ""
 
     @property
     def pairing_code_is_valid(self):
@@ -153,27 +167,26 @@ class NotificationLog(models.Model):
         return f"{self.package_name} - {self.recorded_at}"
 
 
-class AccessibilityTextLog(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    device = models.ForeignKey(ChildDevice, on_delete=models.CASCADE, related_name="accessibility_text_logs")
-    package_name = models.CharField(max_length=255)
-    extracted_text = models.TextField()
-    context_type = models.CharField(max_length=100, blank=True)
-    recorded_at = models.DateTimeField(db_index=True)
-
-    class Meta:
-        indexes = [
-            models.Index(fields=["device", "recorded_at"]),
-        ]
-
-    def __str__(self):
-        return f"{self.package_name} - {self.recorded_at}"
-
-
 class GeoZone(models.Model):
+    """Xavfsizlik zonasi: bolaning bo'lishi kerak bo'lgan joy.
+
+    DIQQAT: `AccessibilityTextLog` modeli 2026-10 da olib tashlandi — u ekran
+    matnini saqlash kanali edi. Android ilovasi hech qachon to'ldirmagan
+    (`canRetrieveWindowContent="false"`), ya'ni o'lik tuzilmish edi.
+
+    Xarita: ilova Carto raster plitkalaridan foydalanadi (`flutter_map`).
+    Google Maps API key kerak emas — Carto kaliti ochiq (public) bo'lib,
+    APK ichida saqlanishi mo'ljallangan.
+
+    `latitude`/`longitude` avval yo'q edi — faqat nom va radius bor edi, ya'ni
+    "qayerda" degan savolga javob berib bo'lmasdi.
+    """
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     device = models.ForeignKey(ChildDevice, on_delete=models.CASCADE, related_name="zones")
     name = models.CharField(max_length=255)
+    latitude = models.FloatField(default=0.0)
+    longitude = models.FloatField(default=0.0)
     radius_meters = models.FloatField()
     created_at = models.DateTimeField(auto_now_add=True)
 

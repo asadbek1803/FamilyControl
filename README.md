@@ -255,6 +255,72 @@ Qurilma autentifikatsiyasi bilan (`Authorization: DeviceBearer <id>:<token>`):
 - `GET /devices/events/` — hodisa tarixi
 - `POST /sync/batch/` — batareya, joylashuv, ilovalar
 
+## Ota-onaning boshqaruv paneli
+
+Asosiy ekranda **boshqaruv paneli** bor: `GET /api/v1/dashboard/`. Bitta
+so'rovda **barcha farzandlar** bo'yicha jamlangan ma'lumot qaytaradi.
+
+```json
+{
+  "generated_at": "...",
+  "summary":  { "children_count": 2, "devices_count": 3, "online_count": 2,
+                "low_battery_count": 1, "blocked_apps_count": 4,
+                "active_sos_count": 0, "today_screen_time_ms": 5400000 },
+  "children": [
+    { "child_name": "Alisher", "devices_count": 2, "online_count": 1,
+      "today_screen_time_ms": 3600000,
+      "devices": [ { "id": "...", "battery_level": 85.0,
+                     "blocked_apps_count": 3, "last_event_type": "battery_low" } ] }
+  ],
+  "recent_events": [ { "event_type": "sos", "message": "..." } ]
+}
+```
+
+Nima uchun alohida endpoint: avval har bir bo'lim uchun avval bitta qurilma
+tanlash kerak edi, shuning uchun ikki farzandni bir vaqtda solishtirish
+mumkin emas edi. Endi bitta ekranda barchasi ko'rinadi.
+
+**Qurilma soni oshsa ham so'rovlar soni o'zgarmaydi** — barcha jamlama
+`values('device_id').annotate(...)` orqali bitta SQL da olinadi
+(`parental_control/tests_dashboard.py` dagi N+1 testi buni tekshiradi).
+
+### Farzand nomi (`child_name`)
+
+`ChildDevice.child_name` — majburiy emas. Panel qurilmalarni shu nom bo'yicha
+guruhlaydi.
+
+- bir farzand bir nechta qurilma ishlatishi mumkin (telefon + planshet) —
+  ular bitta guruhda birlashadi;
+- **nomlanmagan** qurilmalar bitta "Nomsiz" guruhiga **birlashtirilmaydi**
+  (aks holda ikki farzand aralashib ketardi) — har biri alohida turadi;
+- nomlangan farzandlar ro'yxatda oldinga qo'yiladi.
+
+Nom berish: Qurilma tafsilotlari → **Nom berish** (`edit_device_screen.dart`).
+
+### Bo'limlar
+
+Bosh menyudagi bo'limlar bir qurilmadan keyin ochiladi
+(`DeviceListScreen`):
+
+| Bo'lim | Endpoint | Izoh |
+|---|---|---|
+| Boshqaruv paneli | `GET /dashboard/` | Barcha farzandlar bir ekranda |
+| Xavfsizlik zonalari | `zones/` | Qo'shish, tahrirlash, o'chirish |
+| Vaqt limitlari | `limits/` | `max_daily_minutes` 1..1440 |
+| SOS signallari | `sos/` | `?unresolved=1` + "Ko'rildi" |
+| Hodisa tarixi | `devices/events/` | `?event_type=` va `?days=` filtrlari |
+| Kontaktlar | `contacts/` | Faqat ota-ona ro'yxatidan o'chirish |
+| Bildirishnomalar | `notifications/` | **Har doim bo'sh** — quyida |
+
+Ishlayotgan yangi endpoint'lar: `zones/<uuid>/`, `contacts/<uuid>/`,
+`sos/<uuid>/` (tahrirlash/o'chirish).
+
+> **Xarita ishlatilmaydi.** `google_maps_flutter` `pubspec.yaml` da bor, lekin
+> API key yo'q — kalitsiz holatda bo'sh kulrang kvadrat ko'rsatadi, ya'ni
+> foydalanuvchi "ishlaydi" deb o'ylab aslida hech narsani ko'rmaydi. Zona
+> markazi bolaning **oxirgi joylashuvi** yoki qo'lda kiritilgan
+> koordinatadan olinadi.
+
 ## Chegara: yashirin kuzatuv
 
 Bu tizim **chat yozishmalari, SMS yoki ekrandagi matnni yig'maydi**.
@@ -266,12 +332,41 @@ Ota-onaga yuboriladigan hamma ma'lumot — **ilova va qurilma holati**
 (ulandi, bloklandi, batareya, SOS). Boshqa ilovalarning ichki xabarlari bu
 tizimga kirmaydi.
 
+### "Bildirishnomalar" bo'limi nega doim bo'sh
+
+Serverda `NotificationLog` modeli va `GET /devices/<id>/notifications/`
+endpointi mavjud, lekin **Android ilovasi hech narsa yig'maydi**: manifestida
+`NotificationListenerService` yo'q. Ya'ni boshqa ilovalarning bildirishnoma
+matni umuman o'qilmaydi.
+
+Ekran shu sababdan bo'sh holatni tushuntiruvchi matn ko'rsatadi — aks holda
+foydalanuvchi "ilova buzilgan" deb o'ylaydi. Model va endpoint tez orada
+olib tashlanishi mumkin.
+
+### Kontaktlar: nima yig'iladi
+
+`Contact` — **telefon raqamlari ro'yxati** (`contact_name` + `phone_number`),
+matnli xabarlar **yo'q**. Bu ota-onalik nazorati uchun kerakli bo'lsa ham,
+birinchi bo'lib qo'shilgan kontaktni ota-onaga ko'rsatish uchun ishlatiladi.
+
+Ota-ona kontaktni o'chira oladi, lekin bu **bolaning telefonidan o'chirish**
+ emas — faqat ota-onaning ro'yxatidan chiqarish.
+
 ## Testlar
 
 ```bash
-python manage.py test parental_control
-cd flutter_app && flutter analyze && flutter test
+python manage.py test parental_control        # 75 ta test
+cd flutter_app && flutter analyze && flutter test   # 26 ta test
 ```
+
+**Flutter testlari** (`test/models_contract_test.dart`) modellarning server
+javobi bilan mosligini tekshiradi: `GeoZone`, `AppTimeLimit`, `Contact`,
+`SOSAlert`, `DeviceEvent`, `ChildDevice`, `ParentDashboard`.
+
+Nima uchun bu muhim: modellarda maydon nomlari server bilan mos kelmasdi
+(`json['device_id'] as String` — `null` kelganda `TypeError`), xato esa
+`DeviceRepository` ichidagi `try` blokida yutilib, foydalanuvchiga faqat
+"bo'sh ro'yxat" ko'rinardi. Testlar shu sinf xatolarni darhol ushlaydi.
 
 **PostgreSQL bilan:** birinchi marta test bazasi yaratiladi (keyin
 o'chirilmaydi — `neondb_test`):

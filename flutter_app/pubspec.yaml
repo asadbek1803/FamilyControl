@@ -33,9 +33,21 @@ dependencies:
 
   # UI
   fl_chart: ^0.70.2
-  google_maps_flutter: ^2.10.1
   intl: ^0.20.2
   cached_network_image: ^3.4.1
+
+  # Xarita
+  #
+  # `google_maps_flutter` olib tashlandi (2026-10): u Google Maps API key
+  # talab qiladi. Key yo'q holatda xarita bo'sh kulrang kvadrat ko'rsatadi —
+  # ya'ni foydalanuvchi "ishlaydi" deb o'ylab, aslida hech narsani
+  # ko'rmaydi. Bu xavfliroq, yo'q holatdan ko'ra.
+  #
+  # `flutter_map` — API key talab qilmaydi. Plitkalar Carto'dan olinadi
+  # (`core/utils/carto_tiles.dart`), ular ochiq (public) kalit bilan
+  # ishlaydi va kalit APK ichida saqlanishi mo'ljallangan.
+  flutter_map: ^8.1.1
+  latlong2: ^0.9.1
 
   # Utils
   uuid: ^4.5.1

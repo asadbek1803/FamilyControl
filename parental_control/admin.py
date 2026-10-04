@@ -5,7 +5,6 @@ from .models import (
     InstalledApp,
     AppUsageLog,
     NotificationLog,
-    AccessibilityTextLog,
     DeviceEvent,
     TelegramNotificationSetting,
 )
@@ -40,12 +39,6 @@ class AppUsageLogAdmin(admin.ModelAdmin):
 @admin.register(NotificationLog)
 class NotificationLogAdmin(admin.ModelAdmin):
     list_display = ("device", "package_name", "title", "recorded_at")
-    list_filter = ("recorded_at",)
-
-
-@admin.register(AccessibilityTextLog)
-class AccessibilityTextLogAdmin(admin.ModelAdmin):
-    list_display = ("device", "package_name", "context_type", "recorded_at")
     list_filter = ("recorded_at",)
 
 

@@ -10,6 +10,9 @@ import '../models/app_usage_log.dart';
 import '../models/notification_log.dart';
 import '../models/geo_zone.dart';
 import '../models/contact.dart';
+import '../models/app_time_limit.dart';
+import '../models/device_event.dart';
+import '../models/sos_alert.dart';
 class DeviceRepository {
   final _apiClient = ApiClient();
   final _connectivity = ConnectivityService();
@@ -112,6 +115,35 @@ class DeviceRepository {
       return true;
     }
     return false;
+  }
+
+  /// Qurilma nomini va **farzand nomini** yangilash.
+  ///
+  /// `child_name` — boshqaruv panelida qurilma qaysi farzandga tegishli
+  /// ko'rsatish uchun. Bir farzand bir nechta qurilma ishlatishi mumkin,
+  /// ular shu nom bo'yicha bitta guruhda birlashadi.
+  Future<ChildDevice?> updateDevice(
+    String id, {
+    String? childName,
+    String? deviceName,
+  }) async {
+    final body = <String, dynamic>{
+      if (childName != null) 'child_name': childName.trim(),
+      if (deviceName != null) 'device_name': deviceName.trim(),
+    };
+    if (body.isEmpty) return getDevice(id);
+
+    final response = await _apiClient.patch(
+      '${ApiConstants.devices}$id/',
+      body: body,
+    );
+    if (response.statusCode != 200) return null;
+
+    final data =
+        jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    final device = ChildDevice.fromJson(data);
+    await _db.upsertDevice(device.toDb());
+    return device;
   }
 
   // ---- Installed Apps ----
@@ -246,94 +278,215 @@ class DeviceRepository {
   }
 
   // ---- Geo Zones ----
+
+  /// Xavfsizlik zonalari — FAQAT serverdan.
+  ///
+  /// Oldin lokal bazaga ham yozilardi, lekin `geo_zones` jadvali server
+  /// javobi bilan mos kelmasdi (ustun nomlari `radius` vs `radius_meters`),
+  /// shuning uchun oflayn holatda noto'g'ri ma'lumot ko'rsatilardi. Zona
+  /// qo'shish — server amali; internet yo'q bo'lsa uni bajarib bo'lmaydi,
+  /// shuning uchun jim qoldirish to'g'ri.
   Future<List<GeoZone>> getZones(String deviceId) async {
-    final isOnline = await _connectivity.isOnline;
+    final response = await _apiClient.get(ApiConstants.deviceZones(deviceId));
+    if (response.statusCode != 200) return [];
 
-    if (isOnline) {
-      try {
-        final response = await _apiClient.get(ApiConstants.deviceZones(deviceId));
-        if (response.statusCode == 200) {
-          final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
-          final zones = data.map((j) => GeoZone.fromJson(j as Map<String, dynamic>)).toList();
-          await _db.upsertGeoZones(zones.map((z) => z.toDb()).toList());
-          return zones;
-        }
-      } catch (_) {}
-    }
-
-    final rows = await _db.getGeoZones(deviceId);
-    return rows.map((r) => GeoZone.fromDb(r)).toList();
+    final List<dynamic> data =
+        jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(GeoZone.fromJson)
+        .toList();
   }
 
   Future<bool> createZone(String deviceId, Map<String, dynamic> data) async {
-    final isOnline = await _connectivity.isOnline;
+    final response = await _apiClient.post(
+      ApiConstants.deviceZones(deviceId),
+      body: data,
+    );
+    return response.statusCode == 200 || response.statusCode == 201;
+  }
 
-    if (isOnline) {
-      final response = await _apiClient.post(
-        ApiConstants.deviceZones(deviceId),
-        body: data,
-      );
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        return true;
-      }
-    } else {
-      await _db.addToSyncQueue(
-        endpoint: ApiConstants.deviceZones(deviceId),
-        method: 'POST',
-        body: jsonEncode(data),
-      );
-      return true; // Optimistic
-    }
-    return false;
+  Future<bool> updateZone(
+    String deviceId,
+    String zoneId,
+    Map<String, dynamic> data,
+  ) async {
+    final response = await _apiClient.patch(
+      ApiConstants.deviceZone(deviceId, zoneId),
+      body: data,
+    );
+    return response.statusCode == 200;
+  }
+
+  Future<bool> deleteZone(String deviceId, String zoneId) async {
+    final response =
+        await _apiClient.delete(ApiConstants.deviceZone(deviceId, zoneId));
+    return response.statusCode == 204 || response.statusCode == 200;
   }
 
   // ---- Contacts ----
+
+  /// Kontaktlar — FAQAT serverdan (bo'sa `[]`).
+  ///
+  /// Server `contact_name`/`is_new` yuboradi, eski lokal jadval esa
+  /// `name`/`is_blocked` saqlagan edi — mos kelmagandi.
   Future<List<Contact>> getContacts(String deviceId) async {
-    final isOnline = await _connectivity.isOnline;
+    try {
+      final response =
+          await _apiClient.get(ApiConstants.deviceContacts(deviceId));
+      if (response.statusCode != 200) return [];
 
-    if (isOnline) {
-      try {
-        final response = await _apiClient.get(ApiConstants.deviceContacts(deviceId));
-        if (response.statusCode == 200) {
-          final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
-          final contacts = data.map((j) => Contact.fromJson(j as Map<String, dynamic>)).toList();
-          await _db.upsertContacts(contacts.map((c) => c.toDb()).toList());
-          return contacts;
-        }
-      } catch (_) {}
+      final List<dynamic> data =
+          jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+      return data
+          .whereType<Map<String, dynamic>>()
+          .map(Contact.fromJson)
+          .toList();
+    } catch (_) {
+      return [];
     }
+  }
 
-    final rows = await _db.getContacts(deviceId);
-    return rows.map((r) => Contact.fromDb(r)).toList();
+  Future<bool> updateContact(
+    String deviceId,
+    String contactId,
+    Map<String, dynamic> data,
+  ) async {
+    final response = await _apiClient.patch(
+      ApiConstants.deviceContact(deviceId, contactId),
+      body: data,
+    );
+    return response.statusCode == 200;
+  }
+
+  Future<bool> deleteContact(String deviceId, String contactId) async {
+    final response = await _apiClient
+        .delete(ApiConstants.deviceContact(deviceId, contactId));
+    return response.statusCode == 204 || response.statusCode == 200;
   }
 
   // ---- App Time Limits ----
-  Future<bool> setAppLimit(String deviceId, Map<String, dynamic> data) async {
-    final isOnline = await _connectivity.isOnline;
 
-    if (isOnline) {
-      final response = await _apiClient.post(
-        ApiConstants.deviceTimeLimits(deviceId),
-        body: data,
-      );
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        return true;
-      }
-    } else {
-      await _db.addToSyncQueue(
-        endpoint: ApiConstants.deviceTimeLimits(deviceId),
-        method: 'POST',
-        body: jsonEncode(data),
-      );
-      return true; // Optimistic
+  /// Kunlik vaqt limitlari — serverdan ro'yxat.
+  Future<List<AppTimeLimit>> getTimeLimits(String deviceId) async {
+    try {
+      final response =
+          await _apiClient.get(ApiConstants.deviceTimeLimits(deviceId));
+      if (response.statusCode != 200) return [];
+
+      final List<dynamic> data =
+          jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+      return data
+          .whereType<Map<String, dynamic>>()
+          .map(AppTimeLimit.fromJson)
+          .toList();
+    } catch (_) {
+      return [];
     }
-    return false;
+  }
+
+  /// Yangi limit yaratish.
+  ///
+  /// DIQQAT: serverda `max_daily_minutes` 1..1440 oralig'ida bo'lishi
+  /// shart. Avval `setAppLimit` hech qanday tekshiruvsiz `true` qaytardi —
+  /// server 400 bersa ham ilova "muvaffaqiyatli" deb ko'rsatardi.
+  Future<bool> setAppLimit(String deviceId, Map<String, dynamic> data) async {
+    final response = await _apiClient.post(
+      ApiConstants.deviceTimeLimits(deviceId),
+      body: data,
+    );
+    return response.statusCode == 200 || response.statusCode == 201;
+  }
+
+  Future<bool> updateTimeLimit(
+    String deviceId,
+    String limitId,
+    Map<String, dynamic> data,
+  ) async {
+    final response = await _apiClient.patch(
+      ApiConstants.deviceTimeLimit(deviceId, limitId),
+      body: data,
+    );
+    return response.statusCode == 200;
+  }
+
+  Future<bool> deleteTimeLimit(String deviceId, String limitId) async {
+    final response =
+        await _apiClient.delete(ApiConstants.deviceTimeLimit(deviceId, limitId));
+    return response.statusCode == 204 || response.statusCode == 200;
+  }
+
+  // ---- Device Events (ota-onaning uchun) ----
+
+  /// Qurilma hodisalari tarixi (ulandi, bloklandi, SOS, batareya, zona).
+  ///
+  /// [eventType] va [days] — ixtiyoriy server tomonidagi filtrlar.
+  Future<List<DeviceEvent>> getEvents(
+    String deviceId, {
+    String? eventType,
+    int? days,
+  }) async {
+    try {
+      final response = await _apiClient.get(
+        ApiConstants.deviceEventHistory(deviceId, eventType: eventType, days: days),
+      );
+      if (response.statusCode != 200) return [];
+
+      final List<dynamic> data =
+          jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+      return data
+          .whereType<Map<String, dynamic>>()
+          .map(DeviceEvent.fromJson)
+          .toList();
+    } catch (_) {
+      return [];
+    }
   }
 
   // ---- SOS Alerts ----
   // `SOSAlertSerializer` `latitude` va `longitude` maydonlarini majburiy qiladi.
   // Avval yuborilgan `{device_id, status, created_at}` tani serializer'da yo'q
   // edi -> har doim 400 ValidationError qaytardi.
+
+  /// SOS signallari tarixi — ota-ona uchun.
+  ///
+  /// Avval faqat `POST` bor edi: bola yuborsa, ota-ona uni ilovada ko'ra
+  /// olmasdi. [unresolvedOnly] faqat ko'rib chiqilmagan signallarni oladi.
+  Future<List<SOSAlert>> getSOSAlerts(
+    String deviceId, {
+    bool unresolvedOnly = false,
+  }) async {
+    try {
+      final url = unresolvedOnly
+          ? '${ApiConstants.deviceSOS(deviceId)}?unresolved=1'
+          : ApiConstants.deviceSOS(deviceId);
+      final response = await _apiClient.get(url);
+      if (response.statusCode != 200) return [];
+
+      final List<dynamic> data =
+          jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+      return data
+          .whereType<Map<String, dynamic>>()
+          .map(SOSAlert.fromJson)
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Ota-ona signalni ko'rib chiqganini belgilaydi.
+  Future<bool> setSOSResolved(
+    String deviceId,
+    String alertId,
+    bool resolved,
+  ) async {
+    final response = await _apiClient.patch(
+      ApiConstants.deviceSOSDetail(deviceId, alertId),
+      body: {'resolved': resolved},
+    );
+    return response.statusCode == 200;
+  }
+
   Future<bool> sendSOS(
     String deviceId, {
     required double latitude,
@@ -350,9 +503,7 @@ class DeviceRepository {
         ApiConstants.deviceSOS(deviceId),
         body: data,
       );
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        return true;
-      }
+      return response.statusCode == 200 || response.statusCode == 201;
     } else {
       // Internet yo'q — keyinroq yuborish uchun navbatga solamiz
       await _db.addToSyncQueue(
@@ -360,9 +511,7 @@ class DeviceRepository {
         method: 'POST',
         body: jsonEncode(data),
       );
-      await _db.insertSOSAlert(data);
       return true; // Optimistic
     }
-    return false;
   }
 }

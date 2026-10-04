@@ -16,7 +16,31 @@ class LocalDatabase {
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
-    return await openDatabase(path, version: 1, onCreate: _createDB);
+    return await openDatabase(
+      path,
+      version: 2,
+      onCreate: _createDB,
+      onUpgrade: _upgradeDB,
+    );
+  }
+
+  /// v1 -> v2: `child_devices` ga `child_name` ustuni qo'shildi.
+  ///
+  /// Nima uchun `ALTER TABLE` kerak: `ChildDevice` modeli endi `child_name`
+  /// maydonini o'qiydi (`fromDb`), lekin eski ilova yaratgan bazada bu ustun
+  /// yo'q — `no such column: child_name` xatosi bilan butun "Qurilmalar"
+  /// ekrani ishlamay qolardi.
+  ///
+  /// SQLite `ALTER TABLE ... ADD COLUMN` ni qo'llaydi, shuning uchun ma'lumot
+  /// yo'qolmaydi. `IF NOT EXISTS` SQLite'da qo'llab-quvvatlanmaydi, lekin
+  /// `version` boshqaruvi shuni kafolatlaydi: `onUpgrade` faqat 1 -> 2
+  /// o'tishda chaqiriladi.
+  Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute(
+        'ALTER TABLE child_devices ADD COLUMN child_name TEXT DEFAULT \'\'',
+      );
+    }
   }
 
   Future<void> _createDB(Database db, int version) async {
@@ -25,6 +49,7 @@ class LocalDatabase {
         id TEXT PRIMARY KEY,
         device_identifier TEXT,
         device_name TEXT,
+        child_name TEXT DEFAULT '',
         is_active INTEGER DEFAULT 0,
         battery_level REAL,
         last_seen TEXT,

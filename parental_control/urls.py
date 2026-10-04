@@ -16,16 +16,19 @@ from .views_parent import (
     LocationLogListView,
     AppUsageLogListView,
     NotificationLogListView,
-    AccessibilityTextLogListView,
     ParentRegisterView,
     GeoZoneListView,
+    GeoZoneDetailView,
     AppTimeLimitListView,
     AppTimeLimitDetailView,
     ContactListView,
-    SOSAlertCreateView,
+    ContactDetailView,
+    SOSAlertListCreateView,
+    SOSAlertDetailView,
     TelegramSettingView,
     DeviceEventListView as ParentDeviceEventListView,
 )
+from .views_dashboard import ParentDashboardView
 from .views import (
     DeviceClaimView,
     DeviceEventCreateView,
@@ -44,6 +47,8 @@ urlpatterns = [
     path("devices/events/", DeviceEventCreateView.as_view(), name="device_event_create"),
     # Ota-onaning sozlamalari
     path("settings/telegram/", TelegramSettingView.as_view(), name="telegram_setting"),
+    # Boshqaruv paneli — barcha farzandlar BIR so'rovda
+    path("dashboard/", ParentDashboardView.as_view(), name="dashboard"),
     path("devices/", ChildDeviceListView.as_view(), name="device_list"),
     path("devices/<uuid:id>/", ChildDeviceDetailView.as_view(), name="device_detail"),
     path("devices/<uuid:device_id>/apps/", InstalledAppListView.as_view(), name="installed_apps_list"),
@@ -51,11 +56,15 @@ urlpatterns = [
     path("devices/<uuid:device_id>/locations/", LocationLogListView.as_view(), name="location_logs_list"),
     path("devices/<uuid:device_id>/usage/", AppUsageLogListView.as_view(), name="app_usage_logs_list"),
     path("devices/<uuid:device_id>/notifications/", NotificationLogListView.as_view(), name="notification_logs_list"),
-    path("devices/<uuid:device_id>/accessibility/", AccessibilityTextLogListView.as_view(), name="accessibility_text_logs_list"),
+    # `devices/<id>/accessibility/` 2026-10 da olib tashlandi — ekran matnini
+    # o'qish kanali. Model ham, endpoint ham yo'q (qarang `models.py`).
     path("devices/<uuid:device_id>/zones/", GeoZoneListView.as_view(), name="geozone_list"),
+    path("devices/<uuid:device_id>/zones/<uuid:id>/", GeoZoneDetailView.as_view(), name="geozone_detail"),
     path("devices/<uuid:device_id>/limits/", AppTimeLimitListView.as_view(), name="apptimelimit_list"),
     path("devices/<uuid:device_id>/limits/<uuid:pk>/", AppTimeLimitDetailView.as_view(), name="apptimelimit_detail"),
     path("devices/<uuid:device_id>/contacts/", ContactListView.as_view(), name="contact_list"),
-    path("devices/<uuid:device_id>/sos/", SOSAlertCreateView.as_view(), name="sos_create"),
+    path("devices/<uuid:device_id>/contacts/<uuid:id>/", ContactDetailView.as_view(), name="contact_detail"),
+    path("devices/<uuid:device_id>/sos/", SOSAlertListCreateView.as_view(), name="sos_list_create"),
+    path("devices/<uuid:device_id>/sos/<uuid:id>/", SOSAlertDetailView.as_view(), name="sos_detail"),
     path("devices/<uuid:device_id>/events/", ParentDeviceEventListView.as_view(), name="device_events_list"),
 ]

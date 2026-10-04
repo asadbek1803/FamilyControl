@@ -1,57 +1,44 @@
+/// Bolaning qurilmasidagi kontakt.
+///
+/// XATO (tuzatildi): server `contact_name` va `is_new` yuboradi, model esa
+/// `name` va `is_blocked` kutardi. `json['name'] as String` `null` uchun
+/// TypeError berar edi — `getContacts` ichidagi `try` uni yutib, kontaktlar
+/// ro'yxati doim bo'sh chiqardi (xato foydalanuvchiga ko'rinmasdi).
 class Contact {
   final String id;
-  final String deviceId;
-  final String name;
+  final String contactName;
   final String phoneNumber;
-  final bool isBlocked;
-  final String? createdAt;
 
-  Contact({
+  /// Qurilmada yangi kontakt qo'shilganmi.
+  final bool isNew;
+
+  final String? updatedAt;
+
+  const Contact({
     required this.id,
-    required this.deviceId,
-    required this.name,
+    required this.contactName,
     required this.phoneNumber,
-    required this.isBlocked,
-    this.createdAt,
+    this.isNew = false,
+    this.updatedAt,
   });
+
+  String get name => contactName;
 
   factory Contact.fromJson(Map<String, dynamic> json) {
     return Contact(
       id: json['id'] as String,
-      deviceId: json['device_id'] as String,
-      name: json['name'] as String,
-      phoneNumber: json['phone_number'] as String,
-      isBlocked: json['is_blocked'] as bool? ?? false,
-      createdAt: json['created_at'] as String?,
+      contactName: json['contact_name'] as String? ?? '',
+      phoneNumber: json['phone_number'] as String? ?? '',
+      isNew: json['is_new'] as bool? ?? false,
+      updatedAt: json['updated_at'] as String?,
     );
   }
 
   Map<String, dynamic> toJson() => {
         'id': id,
-        'device_id': deviceId,
-        'name': name,
+        'contact_name': contactName,
         'phone_number': phoneNumber,
-        'is_blocked': isBlocked,
-        'created_at': createdAt,
-      };
-
-  factory Contact.fromDb(Map<String, dynamic> row) {
-    return Contact(
-      id: row['id'] as String,
-      deviceId: row['device_id'] as String,
-      name: row['name'] as String,
-      phoneNumber: row['phone_number'] as String,
-      isBlocked: (row['is_blocked'] as int?) == 1,
-      createdAt: row['created_at'] as String?,
-    );
-  }
-
-  Map<String, dynamic> toDb() => {
-        'id': id,
-        'device_id': deviceId,
-        'name': name,
-        'phone_number': phoneNumber,
-        'is_blocked': isBlocked ? 1 : 0,
-        'created_at': createdAt,
+        'is_new': isNew,
+        'updated_at': updatedAt,
       };
 }

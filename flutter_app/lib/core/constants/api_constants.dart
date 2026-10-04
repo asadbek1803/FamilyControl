@@ -54,6 +54,12 @@ class ApiConstants {
   // Ota-onaning sozlamalari
   static const String telegramSetting = '/settings/telegram/';
 
+  /// Boshqaruv paneli — ota-onaning BARCHA farzandlari bitta so'rovda.
+  ///
+  /// Avval har bir bo'limga o'tish uchun avval bitta qurilma tanlash kerak
+  /// edi, shuning uchun "barcha farzandni bir vaqtda ko'rish" mumkin emas edi.
+  static const String dashboard = '/dashboard/';
+
   // Child data endpoints (relative, device_id will be interpolated)
   static String deviceApps(String deviceId) => '/devices/$deviceId/apps/';
   static String deviceApp(String deviceId, String appId) =>
@@ -63,18 +69,45 @@ class ApiConstants {
   static String deviceUsage(String deviceId) => '/devices/$deviceId/usage/';
   static String deviceNotifications(String deviceId) =>
       '/devices/$deviceId/notifications/';
-  static String deviceAccessibility(String deviceId) =>
-      '/devices/$deviceId/accessibility/';
-  static String deviceZones(String deviceId) =>
-      '/devices/$deviceId/zones/';
-  static String deviceContacts(String deviceId) =>
-      '/devices/$deviceId/contacts/';
+  // `devices/<id>/accessibility/` 2026-10 da serverdan butunlay olib
+  // tashlandi (model, serializer, endpoint). Bu — ekran matnini o'qish
+  // kanali edi. Ilova hech qachon yubormagan, lekin serverda tayyor
+  // turishi keyinchalik "yoqib qo'yilishi" mumkin edi.
+  static String deviceZones(String deviceId) => '/devices/$deviceId/zones/';
+  static String deviceZone(String deviceId, String zoneId) =>
+      '/devices/$deviceId/zones/$zoneId/';
+  static String deviceContacts(String deviceId) => '/devices/$deviceId/contacts/';
+  static String deviceContact(String deviceId, String contactId) =>
+      '/devices/$deviceId/contacts/$contactId/';
   // DIQQAT: backend'da bu yo'l `parental_control/urls.py` da
   // `devices/<uuid:device_id>/limits/` ko'rinishida. Avval bu yerda
   // `/time-limits/` edi — mos kelmasligi tufayli barcha so'rovlar 404 berardi.
-  static String deviceTimeLimits(String deviceId) => '/devices/$deviceId/limits/';
-  static String deviceSOS(String deviceId) =>
-      '/devices/$deviceId/sos/';
+  static String deviceTimeLimits(String deviceId) =>
+      '/devices/$deviceId/limits/';
+  static String deviceTimeLimit(String deviceId, String limitId) =>
+      '/devices/$deviceId/limits/$limitId/';
+  static String deviceSOS(String deviceId) => '/devices/$deviceId/sos/';
+  static String deviceSOSDetail(String deviceId, String alertId) =>
+      '/devices/$deviceId/sos/$alertId/';
+
+  /// `/devices/<id>/events/` — faqat ota-ona uchun **o'qish** (tarix).
+  ///
+  /// Qurilma hodisa yuborish uchun yuqoridagi [deviceEvents] (`POST
+  /// /devices/events/`) ishlatiladi — ikki yo'l butunlay boshqa:
+  /// biri ota-onaning JWT'si bilan o'qiydi, ikkinchisi qurilmaning
+  /// `DeviceBearer` tokeni bilan yozadi.
+  ///
+  /// [eventType] va [days] — ixtiyoriy filtrlar.
+  static String deviceEventHistory(String deviceId,
+          {String? eventType, int? days}) {
+    const base = '/devices/';
+    final params = <String>[
+      if (eventType != null) 'event_type=$eventType',
+      if (days != null) 'days=$days',
+    ];
+    final path = '$base$deviceId/events/';
+    return params.isEmpty ? path : '$path?${params.join('&')}';
+  }
 
   // Sync
   static const String syncBatch = '/sync/batch/';

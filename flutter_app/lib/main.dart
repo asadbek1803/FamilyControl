@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'providers/auth_provider.dart';
 import 'providers/device_provider.dart';
+import 'providers/dashboard_provider.dart';
 import 'providers/connectivity_provider.dart';
 import 'providers/notification_settings_provider.dart';
 import 'core/constants/api_constants.dart';
@@ -79,6 +80,11 @@ class FamilyControlApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => DeviceProvider()),
+        // Boshqaruv paneli — ota-onaning barcha farzandlarini bitta
+        // so'rovda oladi (`GET /dashboard/`). `DeviceProvider` dan alohida,
+        // chunki u boshqa endpoint'dan ma'lumot o'qiydi va mustaqil
+        // yangilanadi.
+        ChangeNotifierProvider(create: (_) => DashboardProvider()),
         ChangeNotifierProvider(create: (_) => ConnectivityProvider()),
         ChangeNotifierProvider(create: (_) => NotificationSettingsProvider()),
       ],

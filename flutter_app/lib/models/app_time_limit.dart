@@ -1,57 +1,52 @@
+/// Ilovaning kunlik foydalanish vaqti limiti.
+///
+/// XATO (tuzatildi): avvalgi model serverdan kelmaydigan maydonlarni kutardi
+/// (`device_id`, `limit_minutes`, `is_blocked`). Server esa `package_name`,
+/// `max_daily_minutes`, `block_after_time`, `is_active` qaytaradi. Sababi:
+/// `json['device_id'] as String` `null` uchun TypeError berib, butun
+/// `getTimeLimits` chaqiruvini sindirardi.
 class AppTimeLimit {
   final String id;
-  final String deviceId;
   final String packageName;
-  final int limitMinutes;
-  final bool isBlocked;
-  final String? createdAt;
+  final int maxDailyMinutes;
+  final bool isActive;
 
-  AppTimeLimit({
+  /// `block_after_time` — "soat 21:00 dan keyin bloklanadi" (`HH:MM`).
+  /// `null` bo'lsa faqat kunlik limit qo'llaniladi.
+  final String? blockAfterTime;
+
+  const AppTimeLimit({
     required this.id,
-    required this.deviceId,
     required this.packageName,
-    required this.limitMinutes,
-    required this.isBlocked,
-    this.createdAt,
+    required this.maxDailyMinutes,
+    this.isActive = true,
+    this.blockAfterTime,
   });
 
   factory AppTimeLimit.fromJson(Map<String, dynamic> json) {
     return AppTimeLimit(
       id: json['id'] as String,
-      deviceId: json['device_id'] as String,
-      packageName: json['package_name'] as String,
-      limitMinutes: json['limit_minutes'] as int? ?? 0,
-      isBlocked: json['is_blocked'] as bool? ?? false,
-      createdAt: json['created_at'] as String?,
+      packageName: json['package_name'] as String? ?? '',
+      maxDailyMinutes: (json['max_daily_minutes'] as num?)?.toInt() ?? 0,
+      isActive: json['is_active'] as bool? ?? true,
+      blockAfterTime: json['block_after_time'] as String?,
     );
   }
 
   Map<String, dynamic> toJson() => {
         'id': id,
-        'device_id': deviceId,
         'package_name': packageName,
-        'limit_minutes': limitMinutes,
-        'is_blocked': isBlocked,
-        'created_at': createdAt,
+        'max_daily_minutes': maxDailyMinutes,
+        'is_active': isActive,
+        'block_after_time': blockAfterTime,
       };
 
-  factory AppTimeLimit.fromDb(Map<String, dynamic> row) {
-    return AppTimeLimit(
-      id: row['id'] as String,
-      deviceId: row['device_id'] as String,
-      packageName: row['package_name'] as String,
-      limitMinutes: row['limit_minutes'] as int? ?? 0,
-      isBlocked: (row['is_blocked'] as int?) == 1,
-      createdAt: row['created_at'] as String?,
-    );
-  }
-
-  Map<String, dynamic> toDb() => {
-        'id': id,
-        'device_id': deviceId,
-        'package_name': packageName,
-        'limit_minutes': limitMinutes,
-        'is_blocked': isBlocked ? 1 : 0,
-        'created_at': createdAt,
-      };
+  AppTimeLimit copyWith({bool? isActive, int? maxDailyMinutes}) =>
+      AppTimeLimit(
+        id: id,
+        packageName: packageName,
+        maxDailyMinutes: maxDailyMinutes ?? this.maxDailyMinutes,
+        isActive: isActive ?? this.isActive,
+        blockAfterTime: blockAfterTime,
+      );
 }
